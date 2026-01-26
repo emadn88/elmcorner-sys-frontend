@@ -126,7 +126,16 @@ export function TrialsTable({
                 <TableCell>
                   {formatTime(trial.start_time)} - {formatTime(trial.end_time)}
                 </TableCell>
-                <TableCell>{getStatusBadge(trial.status)}</TableCell>
+                <TableCell>
+                  <div className="flex flex-col gap-1">
+                    {getStatusBadge(trial.status)}
+                    {trial.meet_link_used && (
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                        {t("trials.enteredMeeting") || "تم دخول الاجتماع"}
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell>
                   <div className={cn("flex gap-2", direction === "rtl" ? "justify-start" : "justify-end")}>
                     <TooltipProvider>

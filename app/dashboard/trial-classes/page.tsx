@@ -8,6 +8,7 @@ import { TrialsFilters } from "@/components/trials/trials-filters";
 import { TrialsTable } from "@/components/trials/trials-table";
 import { TrialFormModal } from "@/components/trials/trial-form-modal";
 import { ConvertTrialModal } from "@/components/trials/convert-trial-modal";
+import { TrialDetailsModal } from "@/components/trials/trial-details-modal";
 import { DeleteConfirmationModal } from "@/components/students/delete-confirmation-modal";
 import { TrialClass, TrialFilters, TrialStats } from "@/lib/api/types";
 import { TrialService } from "@/lib/services/trial.service";
@@ -23,9 +24,11 @@ export default function TrialClassesPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isConvertOpen, setIsConvertOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isViewOpen, setIsViewOpen] = useState(false);
   const [editingTrial, setEditingTrial] = useState<TrialClass | null>(null);
   const [convertingTrial, setConvertingTrial] = useState<TrialClass | null>(null);
   const [deletingTrial, setDeletingTrial] = useState<TrialClass | null>(null);
+  const [viewingTrial, setViewingTrial] = useState<TrialClass | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [stats, setStats] = useState<TrialStats>({
@@ -96,8 +99,8 @@ export default function TrialClassesPage() {
   };
 
   const handleView = (trial: TrialClass) => {
-    // TODO: Navigate to trial detail page or show modal
-    console.log("View trial:", trial);
+    setViewingTrial(trial);
+    setIsViewOpen(true);
   };
 
   const handleApprove = async (trial: TrialClass) => {
@@ -321,6 +324,12 @@ export default function TrialClassesPage() {
         onOpenChange={setIsFormOpen}
         trial={editingTrial}
         onSave={handleSave}
+      />
+
+      <TrialDetailsModal
+        open={isViewOpen}
+        onOpenChange={setIsViewOpen}
+        trial={viewingTrial}
       />
 
       {convertingTrial && (

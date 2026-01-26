@@ -54,7 +54,8 @@ export function StudentFormModal({
     whatsapp: "",
     country: "",
     currency: "USD",
-    timezone: "UTC",
+    timezone: "Africa/Cairo",
+    language: "ar" as "ar" | "en" | "fr",
     status: "active" as "active" | "paused" | "stopped",
     type: "trial" as "trial" | "confirmed",
   });
@@ -128,7 +129,8 @@ export function StudentFormModal({
         whatsapp: student.whatsapp || "",
         country: student.country || "",
         currency: student.currency || "USD",
-        timezone: student.timezone || "UTC",
+        timezone: student.timezone || "Africa/Cairo",
+        language: student.language || "ar",
         status: student.status,
         type: student.type || "trial",
       });
@@ -150,7 +152,8 @@ export function StudentFormModal({
         whatsapp: "",
         country: "",
         currency: "USD",
-        timezone: "UTC",
+        timezone: "Africa/Cairo",
+        language: "ar",
         status: "active",
         type: "trial",
       });
@@ -190,7 +193,9 @@ export function StudentFormModal({
         country: formData.country || undefined,
         currency: formData.currency,
         timezone: formData.timezone,
+        language: formData.language,
         status: formData.status,
+        type: formData.type,
       };
       if (formData.family_id) {
         submitData.family_id = Number(formData.family_id);
@@ -207,7 +212,7 @@ export function StudentFormModal({
       
       // Auto-update timezone and currency when country changes
       if (field === "country" && value) {
-        const timezone = getTimezoneForCountry(value);
+        const timezone = getTimezoneForCountry(value) || "Africa/Cairo";
         const currency = getCurrencyForCountry(value);
         updated.timezone = timezone;
         // Only auto-set currency if it's still the default or empty
@@ -504,11 +509,62 @@ export function StudentFormModal({
               <Input
                 id="timezone"
                 value={formData.timezone}
-                placeholder="UTC"
+                placeholder="Africa/Cairo"
                 readOnly
                 className="bg-gray-50"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="language" className={cn("text-left rtl:text-right")}>
+              {t("students.language") || "Language"}
+            </Label>
+            <Select
+              value={formData.language}
+              onValueChange={(value) => handleChange("language", value)}
+            >
+              <SelectTrigger 
+                id="language"
+                dir={direction === "rtl" ? "rtl" : "ltr"}
+                className={cn(
+                  direction === "rtl" ? "text-right" : "text-left"
+                )}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent 
+                dir={direction === "rtl" ? "rtl" : "ltr"}
+                className={cn(
+                  direction === "rtl" ? "text-right" : "text-left"
+                )}
+              >
+                <SelectItem 
+                  value="ar"
+                  className={cn(
+                    direction === "rtl" ? "text-right" : "text-left"
+                  )}
+                >
+                  {t("students.language.ar") || "العربية"}
+                </SelectItem>
+                <SelectItem 
+                  value="en"
+                  className={cn(
+                    direction === "rtl" ? "text-right" : "text-left"
+                  )}
+                >
+                  {t("students.language.en") || "الإنجليزية"}
+                </SelectItem>
+                <SelectItem 
+                  value="fr"
+                  className={cn(
+                    direction === "rtl" ? "text-right" : "text-left"
+                  )}
+                >
+                  {t("students.language.fr") || "الفرنسية"}
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <DialogFooter>

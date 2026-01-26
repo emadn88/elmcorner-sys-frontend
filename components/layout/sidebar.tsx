@@ -27,10 +27,12 @@ import {
   Activity,
   CalendarDays,
   CalendarClock,
+  Calendar,
   Bell,
   Wallet,
   TrendingUp,
   Target,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/hooks/use-sidebar";
@@ -118,24 +120,30 @@ const getNavGroups = (t: (key: string) => string, packageNotificationCount?: num
         permission: "view_courses",
       },
       {
+        label: t("sidebar.teacherSchedule") || "Teacher Schedule",
+        href: "/dashboard/teacher-schedule",
+        icon: Calendar,
+        permission: "view_timetables",
+      },
+      {
         label: t("sidebar.trialClasses"),
         href: "/dashboard/trial-classes",
         icon: FlaskConical,
-        permission: "view_timetables",
+        permission: "view_trials",
       },
     ],
   },
   {
     title: t("sidebar.academic"),
     items: [
-      { label: "Calendy", href: "/dashboard/calendy", icon: CalendarClock, permission: "view_timetables" },
+      { label: t("sidebar.calendy") || "Calendy", href: "/dashboard/calendy", icon: CalendarClock, permission: "view_timetables" },
       { label: t("sidebar.classes") || "Classes", href: "/dashboard/classes", icon: CalendarDays, permission: "view_timetables" },
       { label: t("sidebar.timetables"), href: "/dashboard/timetables", icon: Clock, permission: "view_timetables" },
       {
         label: t("sidebar.packages"),
         href: "/dashboard/packages",
         icon: Package,
-        permission: "view_students",
+        permission: "view_packages",
       },
       {
         label: t("sidebar.notifications") || "Notifications",
@@ -154,7 +162,7 @@ const getNavGroups = (t: (key: string) => string, packageNotificationCount?: num
         label: t("sidebar.duties"),
         href: "/dashboard/duties",
         icon: ClipboardCheck,
-        permission: "view_students",
+        permission: "view_duties",
       },
       {
         label: t("sidebar.reports"),
@@ -191,6 +199,8 @@ const getNavGroups = (t: (key: string) => string, packageNotificationCount?: num
   {
     title: t("sidebar.system"),
     items: [
+      { label: t("sidebar.users"), href: "/dashboard/users", icon: Users, permission: "manage_users" },
+      { label: t("sidebar.roles"), href: "/dashboard/roles", icon: Shield, permission: "manage_roles" },
       { label: t("sidebar.settings"), href: "/dashboard/settings", icon: Settings },
     ],
   },
@@ -424,7 +434,11 @@ export function Sidebar() {
 
   // Create permission and role checkers
   const hasPermission = (permission: string) => {
-    return user?.permissions?.includes(permission) ?? false;
+    // If user has no permissions array, deny access (safety check)
+    if (!user?.permissions || !Array.isArray(user.permissions)) {
+      return false;
+    }
+    return user.permissions.includes(permission);
   };
 
   const hasRole = (role: string) => {

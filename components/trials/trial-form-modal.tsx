@@ -30,6 +30,8 @@ import { API_ENDPOINTS } from "@/lib/api/endpoints";
 import { Student, Teacher, Course } from "@/lib/api/types";
 import { useLanguage } from "@/contexts/language-context";
 import { COUNTRIES, getTimezoneForCountry, getCurrencyForCountry } from "@/lib/countries-timezones";
+import { cn } from "@/lib/utils";
+import { ModernSpinner } from "@/components/ui/loading-spinner";
 
 interface TrialFormModalProps {
   open: boolean;
@@ -89,7 +91,8 @@ export function TrialFormModal({
     whatsapp: "",
     country: "",
     currency: "USD",
-    timezone: "UTC",
+    timezone: "Africa/Cairo",
+    language: "ar" as "ar" | "en" | "fr",
   });
 
   const [students, setStudents] = useState<Student[]>([]);
@@ -97,6 +100,8 @@ export function TrialFormModal({
   const [courses, setCourses] = useState<Course[]>([]);
   const [teacherAvailability, setTeacherAvailability] = useState<TeacherAvailabilitySlot[]>([]);
   const [studentSearch, setStudentSearch] = useState("");
+  const [countrySearch, setCountrySearch] = useState("");
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [isLoadingTeachers, setIsLoadingTeachers] = useState(false);
@@ -121,6 +126,7 @@ export function TrialFormModal({
         });
         if (trial.student) {
           setStudents([trial.student]);
+          setStudentSearch(trial.student.full_name);
         }
         if (trial.teacher_id) {
           loadTeacherAvailability(trial.teacher_id);
@@ -142,8 +148,11 @@ export function TrialFormModal({
           whatsapp: "",
           country: "",
           currency: "USD",
-          timezone: "UTC",
+          timezone: "Africa/Cairo",
+          language: "ar",
         });
+        setCountrySearch("");
+        setShowCountryDropdown(false);
         setStudents([]);
         setTeacherAvailability([]);
       }
@@ -168,14 +177,45 @@ export function TrialFormModal({
     }
   }, [studentSearch, open, studentMode]);
 
+
   // Load teacher availability when teacher is selected
   useEffect(() => {
     if (formData.teacher_id) {
-      loadTeacherAvailability(parseInt(formData.teacher_id));
+      if (formData.trial_date) {
+        // Load available time slots for the selected date (excludes booked times)
+        loadAvailableTimeSlots(parseInt(formData.teacher_id), formData.trial_date);
+      } else {
+        // Load general availability if no date selected
+        loadTeacherAvailability(parseInt(formData.teacher_id));
+      }
     } else {
       setTeacherAvailability([]);
     }
-  }, [formData.teacher_id]);
+  }, [formData.teacher_id, formData.trial_date]);
+
+  // Sync country search with selected country
+  useEffect(() => {
+    if (newStudentData.country) {
+      setCountrySearch(newStudentData.country);
+    } else {
+      setCountrySearch("");
+    }
+  }, [newStudentData.country]);
+
+  // Close country dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.country-dropdown-container')) {
+        setShowCountryDropdown(false);
+      }
+    };
+
+    if (showCountryDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showCountryDropdown]);
 
   const loadTeachers = async () => {
     setIsLoadingTeachers(true);
@@ -205,7 +245,7 @@ export function TrialFormModal({
     setIsLoadingAvailability(true);
     try {
       const response = await apiClient.get<TeacherAvailabilitySlot[]>(
-        API_ENDPOINTS.ADMIN.TEACHER(teacherId) + "/availability"
+        API_ENDPOINTS.ADMIN.TEACHER_AVAILABILITY(teacherId)
       );
       if (response.status === "success" && response.data) {
         const availability = response.data.map((slot) => ({
@@ -216,6 +256,28 @@ export function TrialFormModal({
       }
     } catch (err) {
       console.error("Error loading teacher availability:", err);
+      setTeacherAvailability([]);
+    } finally {
+      setIsLoadingAvailability(false);
+    }
+  };
+
+  const loadAvailableTimeSlots = async (teacherId: number, date: string) => {
+    setIsLoadingAvailability(true);
+    try {
+      const response = await apiClient.get<TeacherAvailabilitySlot[]>(
+        API_ENDPOINTS.ADMIN.TEACHER_AVAILABLE_TIME_SLOTS(teacherId),
+        { params: { date } }
+      );
+      if (response.status === "success" && response.data) {
+        const availability = response.data.map((slot) => ({
+          ...slot,
+          day_name: DAYS_OF_WEEK.find((d) => d.value === slot.day_of_week)?.label || "",
+        }));
+        setTeacherAvailability(availability);
+      }
+    } catch (err) {
+      console.error("Error loading available time slots:", err);
       setTeacherAvailability([]);
     } finally {
       setIsLoadingAvailability(false);
@@ -237,10 +299,17 @@ export function TrialFormModal({
         ...newStudentData,
         country: country.name,
         currency: getCurrencyForCountry(country.code) || "USD",
-        timezone: getTimezoneForCountry(country.code) || "UTC",
+        timezone: getTimezoneForCountry(country.code) || "Africa/Cairo",
       });
+      setCountrySearch(country.name);
+      setShowCountryDropdown(false);
     }
   };
+
+  // Filter countries based on search
+  const filteredCountries = COUNTRIES.filter((country) =>
+    country.name.toLowerCase().includes(countrySearch.toLowerCase())
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -248,19 +317,40 @@ export function TrialFormModal({
 
     // Validate based on student mode
     if (studentMode === "new") {
-      if (!newStudentData.full_name) {
+      if (!newStudentData.full_name || newStudentData.full_name.trim() === "") {
         setError(t("trials.validation.studentNameRequired") || "Student name is required");
         return;
       }
     } else {
-      if (!formData.student_id) {
+      if (!formData.student_id || formData.student_id.trim() === "") {
         setError(t("trials.validation.studentRequired") || "Please select a student");
         return;
       }
     }
 
-    if (!formData.teacher_id || !formData.course_id || !formData.trial_date || !formData.start_time || !formData.end_time) {
-      setError(t("trials.validation.required") || "All required fields must be filled");
+    // More explicit validation with better error messages
+    if (!formData.teacher_id || formData.teacher_id.trim() === "") {
+      setError(t("trials.validation.teacherRequired") || "Please select a teacher");
+      return;
+    }
+
+    if (!formData.course_id || formData.course_id.trim() === "") {
+      setError(t("trials.validation.courseRequired") || "Please select a course");
+      return;
+    }
+
+    if (!formData.trial_date || formData.trial_date.trim() === "") {
+      setError(t("trials.validation.dateRequired") || "Please select a trial date");
+      return;
+    }
+
+    if (!formData.start_time || formData.start_time.trim() === "") {
+      setError(t("trials.validation.startTimeRequired") || "Please enter a start time");
+      return;
+    }
+
+    if (!formData.end_time || formData.end_time.trim() === "") {
+      setError(t("trials.validation.endTimeRequired") || "Please enter an end time");
       return;
     }
 
@@ -292,10 +382,30 @@ export function TrialFormModal({
     }
   };
 
-  const selectedStudent = students.find((s) => s.id.toString() === formData.student_id);
+  const selectedStudent = students.find((s) => s.id.toString() === formData.student_id) ||
+    (trial?.student && trial.student.id.toString() === formData.student_id ? trial.student : null);
+  
+  // Get day of week for selected date (0 = Sunday, 1 = Monday, etc. -> convert to 1-7)
+  const getDayOfWeek = (dateString: string): number | null => {
+    if (!dateString) return null;
+    try {
+      const date = new Date(dateString);
+      // Convert from 0-6 (Sun-Sat) to 1-7 (Sun-Sat)
+      return date.getDay() === 0 ? 7 : date.getDay();
+    } catch {
+      return null;
+    }
+  };
+
+  const selectedDateDayOfWeek = getDayOfWeek(formData.trial_date);
+  
+  // Filter availability by selected date's day of week, or show all if no date selected
+  const filteredAvailability = selectedDateDayOfWeek
+    ? teacherAvailability.filter((slot) => slot.day_of_week === selectedDateDayOfWeek)
+    : teacherAvailability;
   
   // Group availability by day
-  const availabilityByDay = teacherAvailability.reduce((acc, slot) => {
+  const availabilityByDay = filteredAvailability.reduce((acc, slot) => {
     if (!acc[slot.day_of_week]) {
       acc[slot.day_of_week] = [];
     }
@@ -352,10 +462,14 @@ export function TrialFormModal({
           {/* New Student Form */}
           {studentMode === "new" && !isEdit && (
             <div className="space-y-4 p-4 bg-gray-50 rounded-lg border">
-              <h3 className="font-semibold">{t("trials.newStudentInfo") || "New Student Information"}</h3>
+              <h3 className={cn("font-semibold text-left rtl:text-right")}>
+                {t("trials.newStudentInfo") || "New Student Information"}
+              </h3>
               
               <div className="space-y-2">
-                <Label htmlFor="full_name">{t("trials.studentName") || "Full Name"} *</Label>
+                <Label htmlFor="full_name" className={cn("text-left rtl:text-right")}>
+                  {t("trials.studentName") || "Full Name"} *
+                </Label>
                 <Input
                   id="full_name"
                   value={newStudentData.full_name}
@@ -366,7 +480,9 @@ export function TrialFormModal({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">{t("trials.email") || "Email"}</Label>
+                  <Label htmlFor="email" className={cn("text-left rtl:text-right")}>
+                    {t("trials.email") || "Email"}
+                  </Label>
                   <Input
                     id="email"
                     type="email"
@@ -375,30 +491,105 @@ export function TrialFormModal({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="whatsapp">{t("trials.whatsapp") || "WhatsApp"}</Label>
+                  <Label htmlFor="whatsapp" className={cn("text-left rtl:text-right")}>
+                    {t("trials.whatsapp") || "WhatsApp"}
+                  </Label>
                   <Input
                     id="whatsapp"
                     value={newStudentData.whatsapp}
                     onChange={(e) => setNewStudentData({ ...newStudentData, whatsapp: e.target.value })}
+                    dir="ltr"
+                    className="text-left"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="country">{t("trials.country") || "Country"}</Label>
+                <Label htmlFor="country" className={cn("text-left rtl:text-right")}>
+                  {t("trials.country") || "Country"}
+                </Label>
+                <div className="relative country-dropdown-container">
+                  <Input
+                    id="country"
+                    placeholder={t("trials.searchCountry") || "Search country..."}
+                    value={countrySearch}
+                    onChange={(e) => {
+                      setCountrySearch(e.target.value);
+                      setShowCountryDropdown(true);
+                    }}
+                    onFocus={() => setShowCountryDropdown(true)}
+                    className="w-full"
+                  />
+                  {showCountryDropdown && filteredCountries.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto text-left rtl:text-right">
+                      {filteredCountries.map((country) => (
+                        <div
+                          key={country.code}
+                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-left rtl:text-right"
+                          onClick={() => handleCountryChange(country.name)}
+                        >
+                          {country.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {showCountryDropdown && filteredCountries.length === 0 && countrySearch && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
+                      <div className="px-4 py-2 text-gray-500 text-left rtl:text-right">
+                        {t("trials.noCountryFound") || "No country found"}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="language" className={cn("text-left rtl:text-right")}>
+                  {t("students.language") || "Language"}
+                </Label>
                 <Select
-                  value={newStudentData.country}
-                  onValueChange={handleCountryChange}
+                  value={newStudentData.language}
+                  onValueChange={(value) => setNewStudentData({ ...newStudentData, language: value as "ar" | "en" | "fr" })}
                 >
-                  <SelectTrigger id="country">
-                    <SelectValue placeholder={t("trials.selectCountry") || "Select country"} />
+                  <SelectTrigger 
+                    id="language"
+                    dir={direction === "rtl" ? "rtl" : "ltr"}
+                    className={cn(
+                      direction === "rtl" ? "text-right" : "text-left"
+                    )}
+                  >
+                    <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    {COUNTRIES.map((country) => (
-                      <SelectItem key={country.code} value={country.name}>
-                        {country.name}
-                      </SelectItem>
-                    ))}
+                  <SelectContent 
+                    dir={direction === "rtl" ? "rtl" : "ltr"}
+                    className={cn(
+                      direction === "rtl" ? "text-right" : "text-left"
+                    )}
+                  >
+                    <SelectItem 
+                      value="ar"
+                      className={cn(
+                        direction === "rtl" ? "text-right" : "text-left"
+                      )}
+                    >
+                      {t("students.language.ar") || "العربية"}
+                    </SelectItem>
+                    <SelectItem 
+                      value="en"
+                      className={cn(
+                        direction === "rtl" ? "text-right" : "text-left"
+                      )}
+                    >
+                      {t("students.language.en") || "الإنجليزية"}
+                    </SelectItem>
+                    <SelectItem 
+                      value="fr"
+                      className={cn(
+                        direction === "rtl" ? "text-right" : "text-left"
+                      )}
+                    >
+                      {t("students.language.fr") || "الفرنسية"}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -450,10 +641,10 @@ export function TrialFormModal({
               value={formData.teacher_id}
               onValueChange={(value) => setFormData({ ...formData, teacher_id: value, start_time: "", end_time: "" })}
             >
-              <SelectTrigger id="teacher">
+              <SelectTrigger id="teacher" dir="rtl" className={direction === "rtl" ? "text-right" : ""}>
                 <SelectValue placeholder={t("trials.selectTeacher") || "Select teacher"} />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent dir="rtl" className={direction === "rtl" ? "text-right" : ""}>
                 {isLoadingTeachers ? (
                   <SelectItem value="loading" disabled>{t("common.loading") || "Loading..."}</SelectItem>
                 ) : (
@@ -470,12 +661,21 @@ export function TrialFormModal({
           {/* Teacher Availability */}
           {formData.teacher_id && (
             <div className="space-y-2 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <Label>{t("trials.teacherAvailability") || "Teacher Available Times"}</Label>
+              <Label>
+                {t("trials.teacherAvailability") || "Teacher Available Times"}
+                {selectedDateDayOfWeek && (
+                  <span className="text-xs font-normal text-gray-600 ml-2">
+                    ({t("trials.forSelectedDate") || "for selected date"})
+                  </span>
+                )}
+              </Label>
               {isLoadingAvailability ? (
                 <p className="text-sm text-gray-600">{t("common.loading") || "Loading..."}</p>
-              ) : teacherAvailability.length === 0 ? (
+              ) : filteredAvailability.length === 0 ? (
                 <p className="text-sm text-yellow-600">
-                  {t("trials.noAvailability") || "This teacher has not set their availability yet"}
+                  {formData.trial_date
+                    ? t("trials.noAvailabilityForDate") || "This teacher has no availability for the selected date"
+                    : t("trials.selectDateFirst") || "Please select a date first to see available times"}
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -517,10 +717,10 @@ export function TrialFormModal({
               value={formData.course_id}
               onValueChange={(value) => setFormData({ ...formData, course_id: value })}
             >
-              <SelectTrigger id="course">
+              <SelectTrigger id="course" dir="rtl" className={direction === "rtl" ? "text-right" : ""}>
                 <SelectValue placeholder={t("trials.selectCourse") || "Select course"} />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent dir="rtl" className={direction === "rtl" ? "text-right" : ""}>
                 {isLoadingCourses ? (
                   <SelectItem value="loading" disabled>{t("common.loading") || "Loading..."}</SelectItem>
                 ) : (
@@ -544,6 +744,8 @@ export function TrialFormModal({
               onChange={(e) => setFormData({ ...formData, trial_date: e.target.value })}
               min={new Date().toISOString().split('T')[0]}
               required
+              dir="rtl"
+              className={direction === "rtl" ? "text-right" : ""}
             />
           </div>
 
@@ -557,6 +759,8 @@ export function TrialFormModal({
                 value={formData.start_time}
                 onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
                 required
+                dir="rtl"
+                className={direction === "rtl" ? "text-right" : ""}
               />
             </div>
             <div className="space-y-2">
@@ -567,6 +771,8 @@ export function TrialFormModal({
                 value={formData.end_time}
                 onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
                 required
+                dir="rtl"
+                className={direction === "rtl" ? "text-right" : ""}
               />
             </div>
           </div>
@@ -592,12 +798,17 @@ export function TrialFormModal({
             >
               {t("common.cancel") || "Cancel"}
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading
-                ? t("common.saving") || "Saving..."
-                : isEdit
-                ? t("common.update") || "Update"
-                : t("common.create") || "Create"}
+            <Button type="submit" disabled={isLoading} className="min-w-[120px]">
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <ModernSpinner size="sm" variant="white" />
+                  <span>{t("common.saving") || "Saving..."}</span>
+                </div>
+              ) : isEdit ? (
+                t("common.update") || "Update"
+              ) : (
+                t("common.create") || "Create"
+              )}
             </Button>
           </DialogFooter>
         </form>

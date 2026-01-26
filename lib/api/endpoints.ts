@@ -23,7 +23,9 @@ export const API_ENDPOINTS = {
     TEACHERS: `/admin/teachers`,
     TEACHER: (id: number) => `/admin/teachers/${id}`,
     TEACHER_AVAILABILITY: (id: number) => `/admin/teachers/${id}/availability`,
+    TEACHER_AVAILABLE_TIME_SLOTS: (id: number) => `/admin/teachers/${id}/available-time-slots`,
     TEACHER_MONTHLY_STATS: (id: number) => `/admin/teachers/${id}/monthly-stats`,
+    TEACHER_WEEKLY_SCHEDULE: (id: number) => `/admin/teachers/${id}/weekly-schedule`,
     
     // Courses
     COURSES: `/admin/courses`,
@@ -72,7 +74,12 @@ export const API_ENDPOINTS = {
     
     // Billing
     BILLS: `/admin/bills`,
+    BILLS_STATISTICS: `/admin/bills/statistics`,
     BILL: (id: number) => `/admin/bills/${id}`,
+    BILL_MARK_PAID: (id: number) => `/admin/bills/${id}/mark-paid`,
+    BILL_SEND_WHATSAPP: (id: number) => `/admin/bills/${id}/send-whatsapp`,
+    BILL_PDF: (id: number) => `/admin/bills/${id}/pdf`,
+    BILL_GENERATE_TOKEN: (id: number) => `/admin/bills/${id}/generate-token`,
     
     // Expenses
     EXPENSES: `/admin/expenses`,
@@ -100,6 +107,18 @@ export const API_ENDPOINTS = {
     
     // Settings
     SETTINGS: `/admin/settings`,
+    
+    // Users
+    USERS: `/admin/users`,
+    USER: (id: number) => `/admin/users/${id}`,
+    USER_STATUS: (id: number) => `/admin/users/${id}/status`,
+    
+    // Roles
+    ROLES: `/admin/roles`,
+    ROLE: (id: number) => `/admin/roles/${id}`,
+    ROLE_PERMISSIONS: (id: number) => `/admin/roles/${id}/permissions`,
+    ROLES_PERMISSIONS_ALL: `/admin/roles/permissions/all`,
+    ROLES_PAGES_PERMISSIONS: `/admin/roles/pages-permissions`,
     
     // Activity
     ACTIVITY: `/admin/activity`,
@@ -161,6 +180,8 @@ export const API_ENDPOINTS = {
   // External (Public)
   EXTERNAL: {
     PAYMENT: (token: string) => `/external/payment/${token}`,
+    PAYMENT_PDF: (token: string) => `/external/payment/${token}/pdf`,
+    PAYMENT_PROCESS: (token: string) => `/external/payment/${token}/process`,
     DUTY: (token: string) => `/external/duty/${token}`,
   },
 } as const;

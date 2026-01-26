@@ -307,6 +307,16 @@ export class TeacherService {
   }
 
   /**
+   * Enter trial (mark as entered)
+   */
+  static async enterTrial(id: number): Promise<TrialClass> {
+    const response = await apiClient.post<TrialClass>(
+      `${API_ENDPOINTS.TEACHER.TRIAL(id)}/enter-meet`
+    );
+    return response.data;
+  }
+
+  /**
    * Get all teachers with filters and pagination (Admin)
    */
   static async getTeachers(filters: TeacherFilters = {}): Promise<PaginatedResponse<Teacher>> {
@@ -360,5 +370,75 @@ export class TeacherService {
     }
 
     throw new Error("Failed to fetch teacher");
+  }
+
+  /**
+   * Get teacher weekly schedule (Admin)
+   */
+  static async getTeacherWeeklySchedule(
+    teacherId: number,
+    weekStart?: string
+  ): Promise<any> {
+    const params: any = {};
+    if (weekStart) {
+      params.week_start = weekStart;
+    }
+
+    const response = await apiClient.get<any>(
+      API_ENDPOINTS.ADMIN.TEACHER_WEEKLY_SCHEDULE(teacherId),
+      { params }
+    );
+
+    if (response.status === "success" && response.data) {
+      return response.data;
+    }
+
+    throw new Error("Failed to fetch teacher weekly schedule");
+  }
+
+  /**
+   * Create a new teacher (Admin)
+   */
+  static async createTeacher(teacherData: Partial<Teacher>): Promise<Teacher> {
+    const response = await apiClient.post<Teacher>(
+      API_ENDPOINTS.ADMIN.TEACHERS,
+      teacherData
+    );
+
+    if (response.status === "success" && response.data) {
+      return response.data;
+    }
+
+    throw new Error("Failed to create teacher");
+  }
+
+  /**
+   * Update an existing teacher (Admin)
+   */
+  static async updateTeacher(
+    id: number,
+    teacherData: Partial<Teacher>
+  ): Promise<Teacher> {
+    const response = await apiClient.put<Teacher>(
+      API_ENDPOINTS.ADMIN.TEACHER(id),
+      teacherData
+    );
+
+    if (response.status === "success" && response.data) {
+      return response.data;
+    }
+
+    throw new Error("Failed to update teacher");
+  }
+
+  /**
+   * Delete a teacher (Admin)
+   */
+  static async deleteTeacher(id: number): Promise<void> {
+    const response = await apiClient.delete(API_ENDPOINTS.ADMIN.TEACHER(id));
+
+    if (response.status !== "success") {
+      throw new Error("Failed to delete teacher");
+    }
   }
 }

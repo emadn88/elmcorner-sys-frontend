@@ -18,8 +18,13 @@ const cairo = Cairo({
 });
 
 export const metadata: Metadata = {
-  title: "ElmCorner - Modern LMS Dashboard",
+  title: "ElmCorner-System",
   description: "A premium learning management system dashboard by ElmCorner",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({

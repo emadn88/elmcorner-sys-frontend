@@ -62,12 +62,15 @@ export interface User {
   id: number;
   name: string;
   email: string;
-  role: 'admin' | 'teacher' | 'support' | 'accountant';
+  role: 'admin' | 'teacher' | 'support' | 'accountant' | string;
   whatsapp?: string;
   timezone: string;
   status: 'active' | 'inactive';
   permissions?: string[];
+  roles?: string[];
   teacher?: TeacherProfile;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface AuthUserResponse {
@@ -86,6 +89,7 @@ export interface Student {
   country?: string;
   currency: string;
   timezone: string;
+  language?: 'ar' | 'en' | 'fr';
   status: 'active' | 'paused' | 'stopped';
   type: 'trial' | 'confirmed';
   notes?: string;
@@ -402,6 +406,8 @@ export interface TrialClass {
   status: 'pending' | 'pending_review' | 'completed' | 'no_show' | 'converted';
   converted_to_package_id?: number;
   notes?: string;
+  meet_link_used?: boolean;
+  meet_link_accessed_at?: string;
   student?: Student;
   teacher?: Teacher;
   course?: Course;
@@ -928,4 +934,183 @@ export interface ConvertLeadRequest {
     end_time: string;
     notes?: string;
   };
+}
+
+/**
+ * User Management Types
+ */
+export interface UserManagement extends User {
+  roles: string[];
+}
+
+export interface UserFilters {
+  search?: string;
+  role?: string;
+  status?: 'active' | 'inactive' | 'all';
+  page?: number;
+  per_page?: number;
+}
+
+export interface CreateUserData {
+  name: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
+  role: string;
+  whatsapp?: string;
+  timezone?: string;
+  status: 'active' | 'inactive';
+}
+
+export interface UpdateUserData {
+  name?: string;
+  email?: string;
+  password?: string;
+  password_confirmation?: string;
+  role?: string;
+  whatsapp?: string;
+  timezone?: string;
+  status?: 'active' | 'inactive';
+}
+
+/**
+ * Role Management Types
+ */
+export interface RoleWithPermissions {
+  id: number;
+  name: string;
+  permissions: string[];
+  permissions_count: number;
+  users_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PagePermissionMapping {
+  [page: string]: string[];
+}
+
+export interface GroupedPermissions {
+  [module: string]: string[];
+}
+
+export interface PermissionsResponse {
+  grouped: GroupedPermissions;
+  all: string[];
+}
+
+export interface CreateRoleData {
+  name: string;
+}
+
+export interface UpdateRoleData {
+  name: string;
+}
+
+export interface SyncPermissionsData {
+  permissions: string[];
+}
+
+/**
+ * Billing Types
+ */
+export interface Bill {
+  id: number;
+  class_id?: number;
+  package_id?: number;
+  student_id: number;
+  teacher_id: number;
+  duration: number;
+  total_hours?: number;
+  amount: number;
+  currency: string;
+  status: 'pending' | 'sent' | 'paid';
+  bill_date: string;
+  payment_date?: string;
+  payment_method?: string;
+  payment_token?: string;
+  is_custom: boolean;
+  sent_at?: string;
+  class_ids?: number[];
+  description?: string;
+  created_at: string;
+  updated_at: string;
+  student?: StudentProfile;
+  teacher?: {
+    id: number;
+    user?: {
+      id: number;
+      name: string;
+    };
+  };
+  package?: Package;
+}
+
+export interface BillItem {
+  id: number;
+  date: string;
+  time: string;
+  duration: number;
+  duration_hours: number;
+  teacher: string;
+  course: string;
+  cost: number;
+}
+
+export interface BillDetails extends Bill {
+  classes: BillItem[];
+}
+
+export interface BillingStatistics {
+  due: {
+    total: Record<string, number>;
+    count: number;
+  };
+  paid: {
+    total: Record<string, number>;
+    count: number;
+  };
+  unpaid: {
+    total: Record<string, number>;
+    count: number;
+  };
+}
+
+export interface BillingFilters {
+  year?: number;
+  month?: number;
+  status?: 'pending' | 'sent' | 'paid' | ('pending' | 'sent' | 'paid')[];
+  student_id?: number;
+  teacher_id?: number;
+  is_custom?: boolean;
+}
+
+export interface BillingGroupedData {
+  [yearMonth: string]: {
+    year: number;
+    month: number;
+    bills: Bill[];
+    paid: Bill[];
+    unpaid: Bill[];
+  };
+}
+
+export interface BillingResponse {
+  bills: BillingGroupedData;
+  statistics: BillingStatistics;
+}
+
+export interface CreateCustomBillData {
+  student_id: number;
+  amount: number;
+  currency?: string;
+  bill_date?: string;
+  description?: string;
+  teacher_id?: number;
+  package_id?: number;
+}
+
+export interface MarkBillPaidData {
+  payment_method: string;
+  payment_date?: string;
 }

@@ -73,7 +73,7 @@ export class ReportService {
    * Download report PDF
    */
   static async downloadReport(id: number): Promise<Blob> {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     
     const response = await fetch(

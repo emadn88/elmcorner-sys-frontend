@@ -100,7 +100,10 @@ export default function TeacherTrialsPage() {
         search: search || undefined,
       });
       setTrials(response.trials);
-      setStats(response.stats);
+      setStats({
+        ...response.stats,
+        pending_review_trials: response.stats.pending_review_trials || 0,
+      });
     } catch (err: any) {
       setError(err.message || "Failed to load trials");
       console.error("Error fetching trials:", err);
@@ -135,6 +138,15 @@ export default function TeacherTrialsPage() {
       console.error("Error submitting trial:", err);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleEnterTrial = async (trial: TrialClass) => {
+    try {
+      await TeacherService.enterTrial(trial.id);
+      await fetchTrials();
+    } catch (err: any) {
+      alert(err.message || "Failed to enter trial");
     }
   };
 
@@ -403,14 +415,26 @@ export default function TeacherTrialsPage() {
                   )}
                 </div>
                 {trial.status === "pending" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => handleOpenModal(trial)}
-                  >
-                    {t("teacher.submitForReview") || "Submit for Review"}
-                  </Button>
+                  <div className="space-y-2">
+                    {(trial as any).can_enter_meet && !(trial as any).meet_link_used && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleEnterTrial(trial)}
+                      >
+                        {t("teacher.enterMeet") || "Enter Meet"}
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => handleOpenModal(trial)}
+                    >
+                      {t("teacher.submitForReview") || "Submit for Review"}
+                    </Button>
+                  </div>
                 )}
                 {trial.status === "pending_review" && (
                   <div className="text-xs text-blue-600 font-medium">

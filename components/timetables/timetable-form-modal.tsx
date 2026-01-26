@@ -26,7 +26,6 @@ import { TimetableService } from "@/lib/services/timetable.service";
 import { StudentService } from "@/lib/services/student.service";
 import { TeacherService } from "@/lib/services/teacher.service";
 import { CourseService } from "@/lib/services/course.service";
-import { ClassService } from "@/lib/services/class.service";
 import { useLanguage } from "@/contexts/language-context";
 import { Card } from "@/components/ui/card";
 import { Plus, X, Search } from "lucide-react";
@@ -39,15 +38,7 @@ interface TimetableFormModalProps {
   onSave: () => Promise<void>;
 }
 
-const DAYS_OF_WEEK = [
-  { value: 1, label: "Monday" },
-  { value: 2, label: "Tuesday" },
-  { value: 3, label: "Wednesday" },
-  { value: 4, label: "Thursday" },
-  { value: 5, label: "Friday" },
-  { value: 6, label: "Saturday" },
-  { value: 7, label: "Sunday" },
-];
+// DAYS_OF_WEEK will be created inside the component to use translations
 
 // Convert 24-hour time to 12-hour AM/PM format
 const formatTime12Hour = (time24: string): string => {
@@ -69,6 +60,17 @@ export function TimetableFormModal({
 }: TimetableFormModalProps) {
   const { t, direction } = useLanguage();
   const isEdit = !!timetable;
+
+  // Create days of week with translations
+  const DAYS_OF_WEEK = [
+    { value: 1, label: t("common.monday") },
+    { value: 2, label: t("common.tuesday") },
+    { value: 3, label: t("common.wednesday") },
+    { value: 4, label: t("common.thursday") },
+    { value: 5, label: t("common.friday") },
+    { value: 6, label: t("common.saturday") },
+    { value: 7, label: t("common.sunday") },
+  ];
 
   const [formData, setFormData] = useState({
     student_id: "",
@@ -99,6 +101,8 @@ export function TimetableFormModal({
   const [selectedTeacherName, setSelectedTeacherName] = useState("");
   const [selectedStudentTimezone, setSelectedStudentTimezone] = useState("");
   const [selectedTeacherTimezone, setSelectedTeacherTimezone] = useState("");
+  const [teacherAvailability, setTeacherAvailability] = useState<any[]>([]);
+  const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
 
   // Time slot mode: "same" or "different"
   const [timeSlotMode, setTimeSlotMode] = useState<"same" | "different">("same");
@@ -132,10 +136,6 @@ export function TimetableFormModal({
           teacher_timezone: timetable.teacher_timezone,
           status: timetable.status,
         });
-        
-        // Set selected names
-        const student = students.find(s => s.id === timetable.student_id);
-        if (student) setSelectedStudentName(student.full_name);
         
         // Set timezone selections
         const studentCountry = COUNTRIES.find(c => c.timezone === timetable.student_timezone);
@@ -194,6 +194,14 @@ export function TimetableFormModal({
     }
   }, [open, timetable]);
 
+  // Set selected student name after students are loaded
+  useEffect(() => {
+    if (timetable && students.length > 0) {
+      const student = students.find(s => s.id === timetable.student_id);
+      if (student) setSelectedStudentName(student.full_name);
+    }
+  }, [timetable, students]);
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -243,6 +251,29 @@ export function TimetableFormModal({
     }
   };
 
+  const loadTeacherAvailability = async (teacherId: number) => {
+    setIsLoadingAvailability(true);
+    try {
+      const response = await TeacherService.getTeacherWeeklySchedule(teacherId);
+      // Get availability from the schedule data
+      const availability: any[] = [];
+      response.schedule.forEach((day) => {
+        day.availability.forEach((avail) => {
+          availability.push({
+            ...avail,
+            day_of_week: day.day_of_week,
+          });
+        });
+      });
+      setTeacherAvailability(availability);
+    } catch (err) {
+      console.error("Error loading teacher availability:", err);
+      setTeacherAvailability([]);
+    } finally {
+      setIsLoadingAvailability(false);
+    }
+  };
+
   const handleDayToggle = (day: number) => {
     setFormData((prev) => {
       const newDays = prev.days_of_week.includes(day)
@@ -269,7 +300,8 @@ export function TimetableFormModal({
           
           for (const existingSlot of existingTimetable.time_slots || []) {
             if (existingSlot.day === newSlot.day && timesOverlap(newSlot, existingSlot)) {
-              return `Student has a conflicting timetable on ${DAYS_OF_WEEK.find(d => d.value === newSlot.day)?.label} at ${existingSlot.start}-${existingSlot.end}`;
+              const dayLabel = DAYS_OF_WEEK.find(d => d.value === newSlot.day)?.label || `Day ${newSlot.day}`;
+              return t("timetables.form.studentHasConflict", { day: dayLabel, time: `${existingSlot.start}-${existingSlot.end}` });
             }
           }
         }
@@ -280,7 +312,8 @@ export function TimetableFormModal({
           
           for (const existingSlot of existingTimetable.time_slots || []) {
             if (existingSlot.day === newSlot.day && timesOverlap(newSlot, existingSlot)) {
-              return `Teacher has a conflicting timetable on ${DAYS_OF_WEEK.find(d => d.value === newSlot.day)?.label} at ${existingSlot.start}-${existingSlot.end}`;
+              const dayLabel = DAYS_OF_WEEK.find(d => d.value === newSlot.day)?.label || `Day ${newSlot.day}`;
+              return t("timetables.form.teacherHasConflict", { day: dayLabel, time: `${existingSlot.start}-${existingSlot.end}` });
             }
           }
         }
@@ -310,21 +343,22 @@ export function TimetableFormModal({
 
   const handleSubmit = async () => {
     if (!formData.student_id || !formData.teacher_id) {
-      alert("Please fill in all required fields");
+      alert(t("timetables.form.fillAllRequiredFields"));
       return;
     }
 
     if (formData.days_of_week.length === 0) {
-      alert("Please select at least one day");
+      alert(t("timetables.form.selectAtLeastOneDay"));
       return;
     }
 
     // Build time slots based on mode
     let timeSlots: TimeSlot[] = [];
+    let courseId = "";
     
     if (timeSlotMode === "same") {
       if (!sameTimeSlot.start || !sameTimeSlot.end || !sameTimeSlot.course_id) {
-        alert("Please fill in time slot and course for same mode");
+        alert(t("timetables.form.fillTimeSlotAndCourse"));
         return;
       }
       // HTML time input already returns 24-hour format (HH:mm)
@@ -337,13 +371,14 @@ export function TimetableFormModal({
         end: endTime,
       }));
       
-      formData.course_id = sameTimeSlot.course_id;
+      courseId = sameTimeSlot.course_id;
     } else {
       // Different mode
       for (const day of formData.days_of_week) {
         const daySlot = dayTimeSlots[day];
         if (!daySlot || !daySlot.start || !daySlot.end || !daySlot.course_id) {
-          alert(`Please fill in time slot and course for ${DAYS_OF_WEEK.find(d => d.value === day)?.label}`);
+          const dayLabel = DAYS_OF_WEEK.find(d => d.value === day)?.label || `Day ${day}`;
+          alert(t("timetables.form.fillTimeSlotForDay", { day: dayLabel }));
           return;
         }
         
@@ -360,12 +395,17 @@ export function TimetableFormModal({
       
       // For different mode, use the first day's course (or we could make it per-day)
       if (formData.days_of_week.length > 0) {
-        formData.course_id = dayTimeSlots[formData.days_of_week[0]]?.course_id || "";
+        courseId = dayTimeSlots[formData.days_of_week[0]]?.course_id || "";
       }
     }
 
     if (timeSlots.length === 0) {
-      alert("Please add at least one time slot");
+      alert(t("timetables.form.addAtLeastOneTimeSlot"));
+      return;
+    }
+
+    if (!courseId) {
+      alert(t("timetables.form.selectCourse"));
       return;
     }
 
@@ -387,7 +427,7 @@ export function TimetableFormModal({
         ...formData,
         student_id: parseInt(formData.student_id),
         teacher_id: parseInt(formData.teacher_id),
-        course_id: parseInt(formData.course_id),
+        course_id: parseInt(courseId),
         time_slots: timeSlots,
       };
 
@@ -400,16 +440,16 @@ export function TimetableFormModal({
       await onSave();
       onOpenChange(false);
     } catch (err: any) {
-      alert(err.message || "Failed to save timetable");
+      alert(err.message || t("timetables.form.failedToSave"));
     } finally {
       setIsLoading(false);
     }
   };
 
   // Filter functions
-  const filteredStudents = students.filter((student) =>
-    student.full_name.toLowerCase().includes(studentSearch.toLowerCase())
-  );
+  const filteredStudents = students.filter((student) => {
+    return student.full_name.toLowerCase().includes(studentSearch.toLowerCase());
+  });
 
   const filteredTeachers = teachers.filter((teacher) => {
     const teacherName =
@@ -420,173 +460,238 @@ export function TimetableFormModal({
   });
 
   const filteredCountries = (search: string) => {
-    return COUNTRIES.filter((country) =>
-      country.name.toLowerCase().includes(search.toLowerCase()) ||
-      country.timezone.toLowerCase().includes(search.toLowerCase())
-    );
+    const searchLower = search.toLowerCase();
+    return COUNTRIES.filter((country) => {
+      return country.name.toLowerCase().includes(searchLower) ||
+        country.timezone.toLowerCase().includes(searchLower);
+    });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" dir={direction}>
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Timetable" : "Create Timetable"}</DialogTitle>
+          <DialogTitle>{isEdit ? t("timetables.editTimetable") : t("timetables.createTimetable")}</DialogTitle>
           <DialogDescription>
-            {isEdit ? "Update timetable details" : "Create a new recurring class schedule"}
+            {isEdit ? t("timetables.form.editDescription") : t("timetables.form.createDescription")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* Basic Info */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2 relative" ref={studentDropdownRef}>
-              <Label>Student *</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search student..."
-                  value={selectedStudentName || studentSearch}
-                  onChange={(e) => {
-                    setStudentSearch(e.target.value);
-                    setShowStudentDropdown(true);
-                    if (!e.target.value) {
-                      setSelectedStudentName("");
-                      setFormData({ ...formData, student_id: "" });
-                    }
-                  }}
-                  onFocus={() => setShowStudentDropdown(true)}
-                  className="pl-9"
-                />
-                {selectedStudentName && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7"
-                    onClick={() => {
-                      setSelectedStudentName("");
-                      setStudentSearch("");
-                      setFormData({ ...formData, student_id: "" });
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-              {showStudentDropdown && (studentSearch || !selectedStudentName) && (
-                <div className="absolute z-[100] w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto">
-                  {filteredStudents.map((student) => (
-                    <div
-                      key={student.id}
-                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                      onClick={() => {
-                        setSelectedStudentName(student.full_name);
-                        setStudentSearch("");
-                        setFormData({ ...formData, student_id: student.id.toString() });
-                        setShowStudentDropdown(false);
+                <div className="space-y-2 relative" ref={studentDropdownRef}>
+                  <Label>{t("timetables.form.student")} *</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder={t("timetables.form.studentPlaceholder")}
+                      value={selectedStudentName || studentSearch}
+                      onChange={(e) => {
+                        setStudentSearch(e.target.value);
+                        setShowStudentDropdown(true);
+                        if (!e.target.value) {
+                          setSelectedStudentName("");
+                          setFormData({ ...formData, student_id: "" });
+                        }
                       }}
-                    >
-                      {student.full_name}
-                    </div>
-                  ))}
-                  {filteredStudents.length === 0 && (
-                    <div className="px-4 py-2 text-sm text-muted-foreground">
-                      No students found
+                      onFocus={() => setShowStudentDropdown(true)}
+                      className={`pl-9 ${selectedStudentName ? "pr-9" : ""}`}
+                    />
+                    {selectedStudentName && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 h-7 w-7"
+                        onClick={() => {
+                          setSelectedStudentName("");
+                          setStudentSearch("");
+                          setFormData({ ...formData, student_id: "" });
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  {showStudentDropdown && (studentSearch || !selectedStudentName) && (
+                    <div className="absolute z-[100] w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto">
+                      {filteredStudents.map((student) => (
+                        <div
+                          key={student.id}
+                          className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                          onClick={() => {
+                            setSelectedStudentName(student.full_name);
+                            setStudentSearch("");
+                            setFormData({ ...formData, student_id: student.id.toString() });
+                            setShowStudentDropdown(false);
+                          }}
+                        >
+                          {student.full_name}
+                        </div>
+                      ))}
+                      {filteredStudents.length === 0 && (
+                        <div className="px-4 py-2 text-sm text-muted-foreground">
+                          {t("timetables.form.noStudentsFound")}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
 
-            <div className="space-y-2 relative" ref={teacherDropdownRef}>
-              <Label>Teacher *</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search teacher..."
-                  value={selectedTeacherName || teacherSearch}
-                  onChange={(e) => {
-                    setTeacherSearch(e.target.value);
-                    setShowTeacherDropdown(true);
-                    if (!e.target.value) {
-                      setSelectedTeacherName("");
-                      setFormData({ ...formData, teacher_id: "" });
-                    }
-                  }}
-                  onFocus={() => setShowTeacherDropdown(true)}
-                  className="pl-9"
-                />
-                {selectedTeacherName && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7"
-                    onClick={() => {
-                      setSelectedTeacherName("");
-                      setTeacherSearch("");
-                      setFormData({ ...formData, teacher_id: "" });
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-              {showTeacherDropdown && (teacherSearch || !selectedTeacherName) && (
-                <div className="absolute z-[100] w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto">
-                  {filteredTeachers.map((teacher) => {
-                    const teacherName =
-                      (teacher as any).user?.name ||
-                      (teacher as any).full_name ||
-                      `Teacher ${teacher.id}`;
-                    return (
-                      <div
-                        key={teacher.id}
-                        className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                <div className="space-y-2 relative" ref={teacherDropdownRef}>
+                  <Label>{t("timetables.form.teacher")} *</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder={t("timetables.form.teacherPlaceholder")}
+                      value={selectedTeacherName || teacherSearch}
+                      onChange={(e) => {
+                        setTeacherSearch(e.target.value);
+                        setShowTeacherDropdown(true);
+                        if (!e.target.value) {
+                          setSelectedTeacherName("");
+                          setFormData({ ...formData, teacher_id: "" });
+                        }
+                      }}
+                      onFocus={() => setShowTeacherDropdown(true)}
+                      className={`pl-9 ${selectedTeacherName ? "pr-9" : ""}`}
+                    />
+                    {selectedTeacherName && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 h-7 w-7"
                         onClick={() => {
-                          setSelectedTeacherName(teacherName);
+                          setSelectedTeacherName("");
                           setTeacherSearch("");
-                          setFormData({ ...formData, teacher_id: teacher.id.toString() });
-                          setShowTeacherDropdown(false);
+                          setFormData({ ...formData, teacher_id: "" });
                         }}
                       >
-                        {teacherName}
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  {showTeacherDropdown && (teacherSearch || !selectedTeacherName) && (
+                    <div className="absolute z-[100] w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto">
+                      {filteredTeachers.map((teacher) => {
+                        const teacherName =
+                          (teacher as any).user?.name ||
+                          (teacher as any).full_name ||
+                          `Teacher ${teacher.id}`;
+                        return (
+                          <div
+                            key={teacher.id}
+                            className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                            onClick={() => {
+                              setSelectedTeacherName(teacherName);
+                              setTeacherSearch("");
+                              setFormData({ ...formData, teacher_id: teacher.id.toString() });
+                              setShowTeacherDropdown(false);
+                              loadTeacherAvailability(teacher.id);
+                            }}
+                          >
+                            {teacherName}
+                          </div>
+                        );
+                      })}
+                      {filteredTeachers.length === 0 && (
+                        <div className="px-4 py-2 text-sm text-muted-foreground">
+                          {t("timetables.form.noTeachersFound")}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{t("timetables.form.status")}</Label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value: any) => setFormData({ ...formData, status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">{t("timetables.active")}</SelectItem>
+                      <SelectItem value="paused">{t("timetables.paused")}</SelectItem>
+                      <SelectItem value="stopped">{t("timetables.stopped")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+          </div>
+
+          {/* Teacher Availability */}
+          {formData.teacher_id && (
+            <div className="space-y-2 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <Label>{t("timetables.form.teacherAvailableTimes")}</Label>
+              {isLoadingAvailability ? (
+                <p className="text-sm text-gray-600">{t("timetables.form.loadingAvailability")}</p>
+              ) : teacherAvailability.length === 0 ? (
+                <p className="text-sm text-yellow-600">
+                  {t("timetables.form.noAvailabilitySet")}
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {DAYS_OF_WEEK.map((day) => {
+                    const dayAvailability = teacherAvailability.filter(
+                      (avail) => avail.day_of_week === day.value
+                    );
+                    if (dayAvailability.length === 0) return null;
+                    return (
+                      <div key={day.value} className="space-y-1">
+                        <div className="font-medium text-sm">{day.label}</div>
+                        <div className="flex flex-wrap gap-2">
+                          {dayAvailability.map((avail) => (
+                            <Button
+                              key={avail.id}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                if (timeSlotMode === "same") {
+                                  setSameTimeSlot({
+                                    ...sameTimeSlot,
+                                    start: avail.start_time.substring(0, 5),
+                                    end: avail.end_time.substring(0, 5),
+                                  });
+                                } else {
+                                  // Add to selected days
+                                  if (!formData.days_of_week.includes(day.value)) {
+                                    handleDayToggle(day.value);
+                                  }
+                                  setDayTimeSlots({
+                                    ...dayTimeSlots,
+                                    [day.value]: {
+                                      start: avail.start_time.substring(0, 5),
+                                      end: avail.end_time.substring(0, 5),
+                                      course_id: formData.course_id || "",
+                                    },
+                                  });
+                                }
+                              }}
+                            >
+                              {avail.start_time.substring(0, 5)} - {avail.end_time.substring(0, 5)}
+                            </Button>
+                          ))}
+                        </div>
                       </div>
                     );
                   })}
-                  {filteredTeachers.length === 0 && (
-                    <div className="px-4 py-2 text-sm text-muted-foreground">
-                      No teachers found
-                    </div>
-                  )}
                 </div>
               )}
             </div>
-
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value: any) => setFormData({ ...formData, status: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="paused">Paused</SelectItem>
-                  <SelectItem value="stopped">Stopped</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          )}
 
           {/* Days of Week */}
-          <div className="space-y-2">
-            <Label>Days of Week *</Label>
-            <div className="flex flex-wrap gap-2">
+          <div className="space-y-3">
+            <Label>{t("timetables.form.daysOfWeek")} *</Label>
+            <div className="flex flex-wrap gap-4">
               {DAYS_OF_WEEK.map((day) => (
-                <div key={day.value} className="flex items-center space-x-2">
+                <div key={day.value} className="flex items-center space-x-3">
                   <Checkbox
                     id={`day-${day.value}`}
                     checked={formData.days_of_week.includes(day.value)}
@@ -602,24 +707,26 @@ export function TimetableFormModal({
 
           {/* Time Slot Mode Selection */}
           <div className="space-y-4">
-            <Label>Time Slot Configuration *</Label>
+            <Label>{t("timetables.form.timeSlotConfiguration")} *</Label>
             <RadioGroup
               value={timeSlotMode}
               onValueChange={(value) => setTimeSlotMode(value as "same" | "different")}
+              className="space-y-3"
             >
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-3">
                 <RadioGroupItem value="same" id="same" />
                 <Label htmlFor="same" className="cursor-pointer">
-                  Same time and course for all days
+                  {t("timetables.form.sameTimeForAllDays")}
                 </Label>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-3">
                 <RadioGroupItem value="different" id="different" />
                 <Label htmlFor="different" className="cursor-pointer">
-                  Different times and courses for each day
+                  {t("timetables.form.differentTimesPerDay")}
                 </Label>
               </div>
             </RadioGroup>
+              </div>
 
             {/* Same Time Slot Mode */}
             {timeSlotMode === "same" && formData.days_of_week.length > 0 && (
@@ -627,7 +734,7 @@ export function TimetableFormModal({
                 <div className="space-y-4">
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <Label>Start Time *</Label>
+                      <Label>{t("timetables.form.startTime")} *</Label>
                       <Input
                         type="time"
                         value={sameTimeSlot.start}
@@ -635,7 +742,7 @@ export function TimetableFormModal({
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>End Time *</Label>
+                      <Label>{t("timetables.form.endTime")} *</Label>
                       <Input
                         type="time"
                         value={sameTimeSlot.end}
@@ -643,13 +750,13 @@ export function TimetableFormModal({
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Course *</Label>
+                      <Label>{t("timetables.form.course")} *</Label>
                       <Select
                         value={sameTimeSlot.course_id}
                         onValueChange={(value) => setSameTimeSlot({ ...sameTimeSlot, course_id: value })}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select course" />
+                          <SelectValue placeholder={t("timetables.form.selectCourse")} />
                         </SelectTrigger>
                         <SelectContent>
                           {courses.map((course) => (
@@ -663,7 +770,7 @@ export function TimetableFormModal({
                   </div>
                   {sameTimeSlot.start && sameTimeSlot.end && (
                     <p className="text-sm text-muted-foreground">
-                      Time: {formatTime12Hour(sameTimeSlot.start)} - {formatTime12Hour(sameTimeSlot.end)}
+                      {t("timetables.form.time")}: {formatTime12Hour(sameTimeSlot.start)} - {formatTime12Hour(sameTimeSlot.end)}
                     </p>
                   )}
                 </div>
@@ -682,7 +789,7 @@ export function TimetableFormModal({
                       <h4 className="font-semibold mb-4">{dayLabel}</h4>
                       <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">
-                          <Label>Start Time *</Label>
+                          <Label>{t("timetables.form.startTime")} *</Label>
                           <Input
                             type="time"
                             value={daySlot.start}
@@ -695,7 +802,7 @@ export function TimetableFormModal({
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>End Time *</Label>
+                          <Label>{t("timetables.form.endTime")} *</Label>
                           <Input
                             type="time"
                             value={daySlot.end}
@@ -708,7 +815,7 @@ export function TimetableFormModal({
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Course *</Label>
+                          <Label>{t("timetables.form.course")} *</Label>
                           <Select
                             value={daySlot.course_id}
                             onValueChange={(value) =>
@@ -719,7 +826,7 @@ export function TimetableFormModal({
                             }
                           >
                             <SelectTrigger>
-                              <SelectValue placeholder="Select course" />
+                              <SelectValue placeholder={t("timetables.form.selectCourse")} />
                             </SelectTrigger>
                             <SelectContent>
                               {courses.map((course) => (
@@ -733,7 +840,7 @@ export function TimetableFormModal({
                       </div>
                       {daySlot.start && daySlot.end && (
                         <p className="text-sm text-muted-foreground mt-2">
-                          Time: {formatTime12Hour(daySlot.start)} - {formatTime12Hour(daySlot.end)}
+                          {t("timetables.form.time")}: {formatTime12Hour(daySlot.start)} - {formatTime12Hour(daySlot.end)}
                         </p>
                       )}
                     </Card>
@@ -746,12 +853,12 @@ export function TimetableFormModal({
           {/* Timezones */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2 relative" ref={studentTimezoneRef}>
-              <Label>Student Timezone *</Label>
+              <Label>{t("timetables.form.studentTimezone")} *</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Search country or timezone..."
+                  placeholder={t("timetables.form.searchCountryOrTimezone")}
                   value={selectedStudentTimezone || studentTimezoneSearch}
                   onChange={(e) => {
                     setStudentTimezoneSearch(e.target.value);
@@ -762,13 +869,13 @@ export function TimetableFormModal({
                     }
                   }}
                   onFocus={() => setShowStudentTimezoneDropdown(true)}
-                  className="pl-9"
+                  className={`pl-9 ${selectedStudentTimezone ? "pr-9" : ""}`}
                 />
                 {selectedStudentTimezone && (
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-7 w-7"
                     onClick={() => {
                       setSelectedStudentTimezone("");
                       setStudentTimezoneSearch("");
@@ -798,7 +905,7 @@ export function TimetableFormModal({
                   ))}
                   {filteredCountries(studentTimezoneSearch).length === 0 && (
                     <div className="px-4 py-2 text-sm text-muted-foreground">
-                      No countries found
+                      {t("timetables.form.noCountriesFound")}
                     </div>
                   )}
                 </div>
@@ -806,12 +913,12 @@ export function TimetableFormModal({
             </div>
 
             <div className="space-y-2 relative" ref={teacherTimezoneRef}>
-              <Label>Teacher Timezone *</Label>
+              <Label>{t("timetables.form.teacherTimezone")} *</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Search country or timezone..."
+                  placeholder={t("timetables.form.searchCountryOrTimezone")}
                   value={selectedTeacherTimezone || teacherTimezoneSearch}
                   onChange={(e) => {
                     setTeacherTimezoneSearch(e.target.value);
@@ -822,13 +929,13 @@ export function TimetableFormModal({
                     }
                   }}
                   onFocus={() => setShowTeacherTimezoneDropdown(true)}
-                  className="pl-9"
+                  className={`pl-9 ${selectedTeacherTimezone ? "pr-9" : ""}`}
                 />
                 {selectedTeacherTimezone && (
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-7 w-7"
                     onClick={() => {
                       setSelectedTeacherTimezone("");
                       setTeacherTimezoneSearch("");
@@ -858,7 +965,7 @@ export function TimetableFormModal({
                   ))}
                   {filteredCountries(teacherTimezoneSearch).length === 0 && (
                     <div className="px-4 py-2 text-sm text-muted-foreground">
-                      No countries found
+                      {t("timetables.form.noCountriesFound")}
                     </div>
                   )}
                 </div>
@@ -869,10 +976,10 @@ export function TimetableFormModal({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("timetables.form.cancel")}
           </Button>
           <Button onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? "Saving..." : isEdit ? "Update" : "Create"}
+            {isLoading ? t("timetables.form.saving") : isEdit ? t("timetables.form.update") : t("timetables.form.create")}
           </Button>
         </DialogFooter>
       </DialogContent>
