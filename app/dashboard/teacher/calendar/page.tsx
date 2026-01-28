@@ -4,13 +4,13 @@ import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { 
   Calendar as CalendarIcon, 
-  Clock, 
-  User, 
-  BookOpen, 
-  ChevronLeft, 
-  ChevronRight,
   Filter,
-  X
+  X,
+  List,
+  LayoutGrid,
+  ChevronLeft,
+  ChevronRight,
+  CalendarDays
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,11 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { TeacherService } from "@/lib/services/teacher.service";
 import { ClassInstance } from "@/lib/api/types";
 import { format, startOfMonth, endOfMonth } from "date-fns";
+import { MonthCalendarView } from "@/components/calendar/month-calendar-view";
+import { DailyCalendarView } from "@/components/calendar/daily-calendar-view";
+import { cn } from "@/lib/utils";
+
+type ViewMode = "month" | "week" | "day" | "list";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -50,17 +55,6 @@ const itemVariants = {
   },
 };
 
-const cardVariants = {
-  hidden: { opacity: 0, scale: 0.95 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    transition: {
-      duration: 0.2,
-    },
-  },
-};
-
 export default function TeacherCalendarPage() {
   const { t } = useLanguage();
   const [classes, setClasses] = useState<ClassInstance[]>([]);
@@ -71,10 +65,28 @@ export default function TeacherCalendarPage() {
   const [dateTo, setDateTo] = useState<string>(format(endOfMonth(new Date()), "yyyy-MM-dd"));
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
 
   useEffect(() => {
     fetchClasses();
   }, [dateFrom, dateTo, statusFilter]);
+
+  // Update date range when switching to daily view to ensure we have data
+  useEffect(() => {
+    if (viewMode === "day") {
+      // For daily view, fetch the entire month to ensure smooth navigation
+      const monthStart = startOfMonth(currentDate);
+      const monthEnd = endOfMonth(currentDate);
+      const newDateFrom = format(monthStart, "yyyy-MM-dd");
+      const newDateTo = format(monthEnd, "yyyy-MM-dd");
+      
+      // Only update if different to avoid infinite loops
+      if (dateFrom !== newDateFrom || dateTo !== newDateTo) {
+        setDateFrom(newDateFrom);
+        setDateTo(newDateTo);
+      }
+    }
+  }, [viewMode]); // Only depend on viewMode to avoid loops
 
   const fetchClasses = async () => {
     try {
@@ -94,8 +106,11 @@ export default function TeacherCalendarPage() {
   };
 
   const filteredClasses = useMemo(() => {
-    if (statusFilter === "all") return classes;
-    return classes.filter((classItem) => classItem.status === statusFilter);
+    let filtered = classes;
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((classItem) => classItem.status === statusFilter);
+    }
+    return filtered;
   }, [classes, statusFilter]);
 
   const handlePreviousMonth = () => {
@@ -119,6 +134,28 @@ export default function TeacherCalendarPage() {
     setDateTo(format(endOfMonth(today), "yyyy-MM-dd"));
   };
 
+  const handlePreviousDay = () => {
+    const newDate = new Date(currentDate);
+    newDate.setDate(newDate.getDate() - 1);
+    setCurrentDate(newDate);
+    // Update date range to include the new day
+    const monthStart = startOfMonth(newDate);
+    const monthEnd = endOfMonth(newDate);
+    setDateFrom(format(monthStart, "yyyy-MM-dd"));
+    setDateTo(format(monthEnd, "yyyy-MM-dd"));
+  };
+
+  const handleNextDay = () => {
+    const newDate = new Date(currentDate);
+    newDate.setDate(newDate.getDate() + 1);
+    setCurrentDate(newDate);
+    // Update date range to include the new day
+    const monthStart = startOfMonth(newDate);
+    const monthEnd = endOfMonth(newDate);
+    setDateFrom(format(monthStart, "yyyy-MM-dd"));
+    setDateTo(format(monthEnd, "yyyy-MM-dd"));
+  };
+
   const handleClearFilters = () => {
     const today = new Date();
     setCurrentDate(today);
@@ -127,45 +164,17 @@ export default function TeacherCalendarPage() {
     setStatusFilter("all");
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "attended":
-        return "bg-green-50 border-green-200 text-green-800";
-      case "pending":
-        return "bg-yellow-50 border-yellow-200 text-yellow-800";
-      case "cancelled_by_teacher":
-      case "cancelled_by_student":
-        return "bg-red-50 border-red-200 text-red-800";
-      case "absent_student":
-        return "bg-orange-50 border-orange-200 text-orange-800";
-      default:
-        return "bg-gray-50 border-gray-200 text-gray-800";
-    }
-  };
-
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case "attended":
-        return "bg-green-100 text-green-800";
-      case "pending":
-        return "bg-yellow-100 text-yellow-800";
-      case "cancelled_by_teacher":
-      case "cancelled_by_student":
-        return "bg-red-100 text-red-800";
-      case "absent_student":
-        return "bg-orange-100 text-orange-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner />
-      </div>
-    );
-  }
+  const stats = useMemo(() => {
+    return {
+      total: filteredClasses.length,
+      pending: filteredClasses.filter((c) => c.status === "pending").length,
+      attended: filteredClasses.filter((c) => c.status === "attended").length,
+      cancelled: filteredClasses.filter(
+        (c) => c.status === "cancelled_by_teacher" || c.status === "cancelled_by_student"
+      ).length,
+      absent: filteredClasses.filter((c) => c.status === "absent_student").length,
+    };
+  }, [filteredClasses]);
 
   const hasFilters = statusFilter !== "all" || dateFrom !== format(startOfMonth(new Date()), "yyyy-MM-dd") || dateTo !== format(endOfMonth(new Date()), "yyyy-MM-dd");
 
@@ -176,8 +185,9 @@ export default function TeacherCalendarPage() {
       animate="visible"
       className="space-y-6"
     >
+      {/* Header */}
       <motion.div variants={itemVariants}>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
               {t("teacher.calendar") || "Calendar"}
@@ -186,7 +196,37 @@ export default function TeacherCalendarPage() {
               {t("teacher.viewAllClasses") || "View all your classes"}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* View Mode Switcher */}
+            <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+              <Button
+                variant={viewMode === "month" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("month")}
+                className="h-8 px-3"
+              >
+                <LayoutGrid className="h-4 w-4 mr-1" />
+                {t("teacher.viewMode.month") || "Month"}
+              </Button>
+              <Button
+                variant={viewMode === "day" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("day")}
+                className="h-8 px-3"
+              >
+                <CalendarDays className="h-4 w-4 mr-1" />
+                {t("teacher.viewMode.day") || "Day"}
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+                className="h-8 px-3"
+              >
+                <List className="h-4 w-4 mr-1" />
+                {t("teacher.viewMode.list") || "List"}
+              </Button>
+            </div>
             <Button
               variant="outline"
               onClick={() => setShowFilters(!showFilters)}
@@ -202,6 +242,53 @@ export default function TeacherCalendarPage() {
         </div>
       </motion.div>
 
+      {/* Stats Cards */}
+      <motion.div variants={itemVariants}>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
+              <div className="text-sm text-gray-600 mt-1">
+                {t("teacher.statistics.totalClasses") || "Total Classes"}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold text-blue-600">{stats.pending}</div>
+              <div className="text-sm text-gray-600 mt-1">
+                {t("teacher.statistics.pending") || "Pending"}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold text-green-600">{stats.attended}</div>
+              <div className="text-sm text-gray-600 mt-1">
+                {t("teacher.statistics.attended") || "Attended"}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold text-red-600">{stats.cancelled}</div>
+              <div className="text-sm text-gray-600 mt-1">
+                {t("teacher.statistics.cancelled") || "Cancelled"}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold text-orange-600">{stats.absent}</div>
+              <div className="text-sm text-gray-600 mt-1">
+                {t("teacher.statistics.absent") || "Absent"}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </motion.div>
+
+      {/* Filters */}
       {showFilters && (
         <motion.div variants={itemVariants}>
           <Card>
@@ -284,114 +371,142 @@ export default function TeacherCalendarPage() {
         </motion.div>
       )}
 
+      {/* Calendar Content */}
       <motion.div variants={itemVariants}>
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <CalendarIcon className="h-5 w-5" />
-                {format(currentDate, "MMMM yyyy")}
-              </CardTitle>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePreviousMonth}
-                  className="flex items-center gap-1"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  {t("common.previous") || "Previous"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleToday}
-                >
-                  {t("common.today") || "Today"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleNextMonth}
-                  className="flex items-center gap-1"
-                >
-                  {t("common.next") || "Next"}
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6">
+        {isLoading ? (
+          <div className="flex items-center justify-center min-h-[600px]">
+            <LoadingSpinner />
+          </div>
+        ) : error ? (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
                 <p className="font-medium">{error}</p>
               </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredClasses.map((classItem) => (
-                <motion.div
-                  key={classItem.id}
-                  variants={cardVariants}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Card className={`h-full border-2 transition-all hover:shadow-lg ${getStatusColor(classItem.status)}`}>
-                    <CardHeader className="pb-3">
+            </CardContent>
+          </Card>
+        ) : viewMode === "month" ? (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <CalendarIcon className="h-5 w-5" />
+                  {format(currentDate, "MMMM yyyy")}
+                </CardTitle>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePreviousMonth}
+                    className="flex items-center gap-1"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    {t("common.previous") || "Previous"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleToday}
+                  >
+                    {t("common.today") || "Today"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleNextMonth}
+                    className="flex items-center gap-1"
+                  >
+                    {t("common.next") || "Next"}
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <MonthCalendarView
+                currentDate={currentDate}
+                classes={filteredClasses}
+                onPreviousMonth={handlePreviousMonth}
+                onNextMonth={handleNextMonth}
+                onToday={handleToday}
+                isLoading={isLoading}
+              />
+            </CardContent>
+          </Card>
+        ) : viewMode === "day" ? (
+          <DailyCalendarView
+            currentDate={currentDate}
+            classes={filteredClasses}
+            onPreviousDay={handlePreviousDay}
+            onNextDay={handleNextDay}
+            onToday={handleToday}
+            isLoading={isLoading}
+          />
+        ) : (
+          // List View (fallback to old card view)
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <List className="h-5 w-5" />
+                {t("teacher.classesList") || "Classes List"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {filteredClasses.length === 0 ? (
+                <div className="text-center py-12">
+                  <CalendarIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 text-lg">
+                    {t("teacher.noClassesFound") || "No classes found for the selected period"}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredClasses.map((classItem) => (
+                    <motion.div
+                      key={classItem.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                    >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <CardTitle className="text-lg mb-2 flex items-center gap-2">
-                            <User className="h-4 w-4" />
+                          <h3 className="font-semibold text-lg text-gray-900 mb-1">
                             {classItem.student?.full_name || "Unknown Student"}
-                          </CardTitle>
-                          <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                            <BookOpen className="h-3 w-3" />
+                          </h3>
+                          <p className="text-sm text-gray-600 mb-2">
                             {classItem.course?.name || "Unknown Course"}
+                          </p>
+                          <div className="flex items-center gap-4 text-sm text-gray-600">
+                            <span>
+                              {format(new Date(classItem.class_date), "MMM dd, yyyy")}
+                            </span>
+                            <span>
+                              {classItem.start_time?.substring(0, 5)} - {classItem.end_time?.substring(0, 5)}
+                            </span>
+                            {classItem.duration && (
+                              <span>{classItem.duration} min</span>
+                            )}
                           </div>
                         </div>
                         <span
-                          className={`px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(classItem.status)}`}
+                          className={cn(
+                            "px-3 py-1 text-xs font-semibold rounded-full",
+                            classItem.status === "attended" && "bg-green-100 text-green-800",
+                            classItem.status === "pending" && "bg-blue-100 text-blue-800",
+                            (classItem.status === "cancelled_by_teacher" || classItem.status === "cancelled_by_student") && "bg-red-100 text-red-800",
+                            classItem.status === "absent_student" && "bg-orange-100 text-orange-800"
+                          )}
                         >
                           {classItem.status.replace("_", " ")}
                         </span>
                       </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm">
-                          <CalendarIcon className="h-4 w-4 text-gray-500" />
-                          <span className="font-medium">
-                            {format(new Date(classItem.class_date), "MMM dd, yyyy")}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Clock className="h-4 w-4 text-gray-500" />
-                          <span>
-                            {classItem.start_time?.substring(0, 5)} - {classItem.end_time?.substring(0, 5)}
-                          </span>
-                        </div>
-                        {classItem.duration && (
-                          <div className="text-xs text-gray-500 pt-1">
-                            Duration: {classItem.duration} minutes
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-
-            {filteredClasses.length === 0 && !isLoading && (
-              <div className="text-center py-12">
-                <CalendarIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 text-lg">
-                  {t("teacher.noClassesFound") || "No classes found for the selected period"}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </motion.div>
     </motion.div>
   );

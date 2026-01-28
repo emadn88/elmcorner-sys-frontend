@@ -90,11 +90,12 @@ export interface Student {
   currency: string;
   timezone: string;
   language?: 'ar' | 'en' | 'fr';
-  status: 'active' | 'paused' | 'stopped';
+  status: 'initial' | 'active' | 'paused' | 'stopped';
   type: 'trial' | 'confirmed';
   notes?: string;
   tags?: string[];
   family?: Family;
+  courses?: Course[];
   created_at: string;
   updated_at: string;
 }

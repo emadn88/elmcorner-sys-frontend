@@ -441,4 +441,38 @@ export class TeacherService {
       throw new Error("Failed to delete teacher");
     }
   }
+
+  /**
+   * Send teacher credentials via WhatsApp (Admin)
+   */
+  static async sendCredentialsWhatsApp(id: number): Promise<void> {
+    const response = await apiClient.post(
+      `${API_ENDPOINTS.ADMIN.TEACHER(id)}/send-credentials-whatsapp`
+    );
+
+    if (response.status !== "success") {
+      throw new Error(response.message || "Failed to send credentials via WhatsApp");
+    }
+  }
+
+  /**
+   * Get teacher credentials (Admin)
+   */
+  static async getCredentials(id: number): Promise<{
+    email: string;
+    password: string;
+    system_link: string;
+  }> {
+    const response = await apiClient.get<{
+      email: string;
+      password: string;
+      system_link: string;
+    }>(`${API_ENDPOINTS.ADMIN.TEACHER(id)}/credentials`);
+
+    if (response.status === "success" && response.data) {
+      return response.data;
+    }
+
+    throw new Error("Failed to fetch teacher credentials");
+  }
 }

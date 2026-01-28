@@ -259,11 +259,73 @@
 
 /* RTL Support Utilities */
 [dir="rtl"] {
-  direction: rtl;
+  direction: rtl !important;
 }
 
 [dir="ltr"] {
-  direction: ltr;
+  direction: ltr !important;
+}
+
+/* Force RTL text alignment for all elements */
+[dir="rtl"] h1,
+[dir="rtl"] h2,
+[dir="rtl"] h3,
+[dir="rtl"] h4,
+[dir="rtl"] h5,
+[dir="rtl"] h6,
+[dir="rtl"] p,
+[dir="rtl"] span,
+[dir="rtl"] div:not([class*="flex"]):not([class*="grid"]),
+[dir="rtl"] label {
+  text-align: right !important;
+}
+
+/* RTL containers */
+[dir="rtl"] .rtl,
+.rtl[dir="rtl"] {
+  direction: rtl !important;
+  text-align: right !important;
+}
+
+.rtl[dir="rtl"] * {
+  text-align: inherit;
+}
+
+.rtl[dir="rtl"] h1,
+.rtl[dir="rtl"] h2,
+.rtl[dir="rtl"] h3,
+.rtl[dir="rtl"] h4,
+.rtl[dir="rtl"] h5,
+.rtl[dir="rtl"] h6,
+.rtl[dir="rtl"] p,
+.rtl[dir="rtl"] span,
+.rtl[dir="rtl"] label {
+  text-align: right !important;
+}
+
+/* Force RTL for main content area */
+[dir="rtl"] main,
+main[dir="rtl"] {
+  direction: rtl !important;
+  text-align: right !important;
+}
+
+[dir="rtl"] main *,
+main[dir="rtl"] * {
+  text-align: inherit;
+}
+
+[dir="rtl"] main h1,
+[dir="rtl"] main h2,
+[dir="rtl"] main h3,
+[dir="rtl"] main h4,
+[dir="rtl"] main h5,
+[dir="rtl"] main h6,
+[dir="rtl"] main p,
+[dir="rtl"] main span,
+[dir="rtl"] main div:not([class*="flex"]):not([class*="grid"]),
+[dir="rtl"] main label {
+  text-align: right !important;
 }
 
 /* RTL-aware spacing utilities */
@@ -298,6 +360,28 @@
   
   [dir="rtl"] .flex-row-reverse-rtl {
     @apply flex-row-reverse;
+  }
+  
+  /* Force RTL for labels and inputs in RTL containers */
+  [dir="rtl"] label,
+  [dir="rtl"] .label,
+  [dir="rtl"] [class*="Label"],
+  .rtl label,
+  .rtl .label,
+  .rtl [class*="Label"] {
+    text-align: right !important;
+    direction: rtl !important;
+    display: block !important;
+  }
+  
+  [dir="rtl"] input[type="date"],
+  [dir="rtl"] input[type="text"],
+  [dir="rtl"] .input,
+  .rtl input[type="date"],
+  .rtl input[type="text"],
+  .rtl .input {
+    text-align: right !important;
+    direction: rtl !important;
   }
 }
 

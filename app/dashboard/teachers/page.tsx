@@ -14,6 +14,8 @@ import { TeacherFormModal } from "@/components/teachers/teacher-form-modal";
 import { TeachersTable } from "@/components/teachers/teachers-table";
 import { TeachersFilters } from "@/components/teachers/teachers-filters";
 import { TeacherDetailsModal } from "@/components/teachers/teacher-details-modal";
+import { TeacherCredentialsModal } from "@/components/teachers/teacher-credentials-modal";
+import { WhatsAppSuccessModal } from "@/components/teachers/whatsapp-success-modal";
 import {
   Dialog,
   DialogContent,
@@ -56,10 +58,15 @@ export default function TeachersPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isCredentialsOpen, setIsCredentialsOpen] = useState(false);
+  const [isWhatsAppSuccessOpen, setIsWhatsAppSuccessOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [deletingTeacher, setDeletingTeacher] = useState<Teacher | null>(null);
   const [detailsTeacher, setDetailsTeacher] = useState<Teacher | null>(null);
+  const [credentialsTeacher, setCredentialsTeacher] = useState<Teacher | null>(null);
+  const [whatsAppSuccessTeacher, setWhatsAppSuccessTeacher] = useState<Teacher | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [sendingWhatsAppId, setSendingWhatsAppId] = useState<number | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [stats, setStats] = useState<TeacherStats>({
     total: 0,
@@ -196,6 +203,27 @@ export default function TeachersPage() {
     setIsDetailsOpen(true);
   };
 
+  // Handle send WhatsApp
+  const handleSendWhatsApp = async (teacher: Teacher) => {
+    try {
+      setSendingWhatsAppId(teacher.id);
+      setError(null);
+      await TeacherService.sendCredentialsWhatsApp(teacher.id);
+      setWhatsAppSuccessTeacher(teacher);
+      setIsWhatsAppSuccessOpen(true);
+    } catch (err: any) {
+      setError(err.message || "Failed to send credentials via WhatsApp");
+    } finally {
+      setSendingWhatsAppId(null);
+    }
+  };
+
+  // Handle view credentials
+  const handleViewCredentials = (teacher: Teacher) => {
+    setCredentialsTeacher(teacher);
+    setIsCredentialsOpen(true);
+  };
+
   if (isInitialLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -292,6 +320,9 @@ export default function TeachersPage() {
           onView={handleViewTeacher}
           onViewPerformance={handleViewPerformance}
           onViewDetails={handleViewDetails}
+          onSendWhatsApp={handleSendWhatsApp}
+          onViewCredentials={handleViewCredentials}
+          sendingWhatsAppId={sendingWhatsAppId}
         />
       </motion.div>
 
@@ -308,6 +339,18 @@ export default function TeachersPage() {
         open={isDetailsOpen}
         onOpenChange={setIsDetailsOpen}
         teacher={detailsTeacher}
+      />
+
+      <TeacherCredentialsModal
+        open={isCredentialsOpen}
+        onOpenChange={setIsCredentialsOpen}
+        teacher={credentialsTeacher}
+      />
+
+      <WhatsAppSuccessModal
+        open={isWhatsAppSuccessOpen}
+        onOpenChange={setIsWhatsAppSuccessOpen}
+        teacherName={whatsAppSuccessTeacher?.user?.name}
       />
 
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>

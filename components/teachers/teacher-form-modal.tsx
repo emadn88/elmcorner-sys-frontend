@@ -21,9 +21,12 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Teacher } from "@/types/teachers";
+import { Course } from "@/types/courses";
+import { CourseService } from "@/lib/services/course.service";
 import { useLanguage } from "@/contexts/language-context";
 import { apiClient } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 interface TeacherFormModalProps {
   open: boolean;
@@ -57,9 +60,31 @@ export function TeacherFormModal({
     status: "active" as "active" | "inactive",
     bio: "",
     meet_link: "",
+    course_ids: [] as number[],
   });
 
   const [error, setError] = useState<string | null>(null);
+  
+  // Courses state
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [isLoadingCourses, setIsLoadingCourses] = useState(false);
+
+  // Load courses
+  useEffect(() => {
+    if (open) {
+      setIsLoadingCourses(true);
+      CourseService.getCourses({ status: 'active', per_page: 100 })
+        .then((response) => {
+          setCourses(response.data || []);
+        })
+        .catch(() => {
+          setCourses([]);
+        })
+        .finally(() => {
+          setIsLoadingCourses(false);
+        });
+    }
+  }, [open]);
 
   // Initialize form data
   useEffect(() => {
@@ -75,6 +100,7 @@ export function TeacherFormModal({
         status: teacher.status,
         bio: teacher.bio || "",
         meet_link: teacher.meet_link || "",
+        course_ids: teacher.courses?.map((c) => c.id) || [],
       });
     } else if (open) {
       setFormData({
@@ -88,6 +114,7 @@ export function TeacherFormModal({
         status: "active",
         bio: "",
         meet_link: "",
+        course_ids: [],
       });
     }
   }, [teacher, open]);
@@ -114,6 +141,11 @@ export function TeacherFormModal({
       // Only include password if provided (for create or if updating)
       if (formData.password) {
         teacherData.password = formData.password;
+      }
+
+      // Include course_ids if provided
+      if (formData.course_ids.length > 0) {
+        teacherData.course_ids = formData.course_ids;
       }
 
       const savedTeacher = await onSave(teacherData);
@@ -151,7 +183,7 @@ export function TeacherFormModal({
               {t("teachers.userInformation") || "User Information"}
             </h3>
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="name">
                   {t("teachers.name") || "Name"} *
                 </Label>
@@ -163,7 +195,7 @@ export function TeacherFormModal({
                   placeholder={t("teachers.namePlaceholder") || "Enter teacher name"}
                 />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="email">
                   {t("teachers.email") || "Email"} *
                 </Label>
@@ -176,7 +208,7 @@ export function TeacherFormModal({
                   placeholder={t("teachers.emailPlaceholder") || "Enter email address"}
                 />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="password">
                   {t("teachers.password") || "Password"} {!isEdit && "*"}
                 </Label>
@@ -194,7 +226,7 @@ export function TeacherFormModal({
                   </p>
                 )}
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="whatsapp">
                   {t("teachers.whatsapp") || "WhatsApp"}
                 </Label>
@@ -215,7 +247,7 @@ export function TeacherFormModal({
               {t("teachers.teacherInformation") || "Teacher Information"}
             </h3>
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="hourly_rate">
                   {t("teachers.hourlyRate") || "Hourly Rate"} *
                 </Label>
@@ -229,7 +261,7 @@ export function TeacherFormModal({
                   required
                 />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="currency">
                   {t("teachers.currency") || "Currency"}
                 </Label>
@@ -241,7 +273,7 @@ export function TeacherFormModal({
                   placeholder="USD"
                 />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="timezone">
                   {t("teachers.timezone") || "Timezone"}
                 </Label>
@@ -252,7 +284,7 @@ export function TeacherFormModal({
                   placeholder="UTC"
                 />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="status">
                   {t("teachers.status") || "Status"} *
                 </Label>
@@ -273,7 +305,7 @@ export function TeacherFormModal({
             </div>
           </div>
 
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="bio">
               {t("teachers.bio") || "Bio"}
             </Label>
@@ -285,21 +317,45 @@ export function TeacherFormModal({
             />
           </div>
 
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="meet_link">
-              {t("teachers.meetLink") || "Meet Link"} *
+              {t("teachers.meetLink") || "Meet Link"}
             </Label>
             <Input
               id="meet_link"
               type="url"
               value={formData.meet_link}
               onChange={(e) => setFormData({ ...formData, meet_link: e.target.value })}
-              required
               placeholder="https://meet.google.com/xxx-xxxx-xxx"
             />
             <p className="text-xs text-gray-500 mt-1">
-              {t("teachers.meetLinkHint") || "Required: Video meeting link for this teacher"}
+              {t("teachers.meetLinkHint") || "Optional: Video meeting link for this teacher"}
             </p>
+          </div>
+
+          <div>
+            <MultiSelect
+              options={courses.map((c) => ({ id: c.id, name: c.name }))}
+              selected={formData.course_ids}
+              onChange={(ids) => setFormData({ ...formData, course_ids: ids })}
+              onSearch={(searchTerm) => {
+                setIsLoadingCourses(true);
+                CourseService.getCourses({ search: searchTerm, status: 'active', per_page: 100 })
+                  .then((response) => {
+                    setCourses(response.data || []);
+                  })
+                  .catch(() => {
+                    setCourses([]);
+                  })
+                  .finally(() => {
+                    setIsLoadingCourses(false);
+                  });
+              }}
+              placeholder={t("teachers.selectCourses") || "Select courses (optional)"}
+              label={t("teachers.courses") || "Courses"}
+              searchPlaceholder={t("teachers.searchCourses") || "Search courses..."}
+              isLoading={isLoadingCourses}
+            />
           </div>
 
           <DialogFooter>

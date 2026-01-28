@@ -1,6 +1,7 @@
 "use client";
 
-import { Edit, Trash2, Eye, TrendingUp, Info } from "lucide-react";
+import { Edit, Trash2, Eye, TrendingUp, Info, Key, Loader2 } from "lucide-react";
+import { WhatsAppIcon } from "@/components/ui/whatsapp-icon";
 import {
   Table,
   TableBody,
@@ -32,6 +33,9 @@ interface TeachersTableProps {
   onView: (teacher: Teacher) => void;
   onViewPerformance?: (teacher: Teacher) => void;
   onViewDetails?: (teacher: Teacher) => void;
+  onSendWhatsApp?: (teacher: Teacher) => void;
+  onViewCredentials?: (teacher: Teacher) => void;
+  sendingWhatsAppId?: number | null;
 }
 
 export function TeachersTable({
@@ -44,6 +48,9 @@ export function TeachersTable({
   onView,
   onViewPerformance,
   onViewDetails,
+  onSendWhatsApp,
+  onViewCredentials,
+  sendingWhatsAppId,
 }: TeachersTableProps) {
   const { t, direction } = useLanguage();
   const allSelected = teachers.length > 0 && selectedIds.length === teachers.length;
@@ -194,6 +201,51 @@ export function TeachersTable({
                           </TooltipTrigger>
                           <TooltipContent>
                             <p>{t("teachers.performance") || "Performance"}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {onSendWhatsApp && teacher.user?.whatsapp && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-gray-500 hover:text-green-600 hover:bg-green-50 transition-colors disabled:opacity-50"
+                              onClick={() => onSendWhatsApp(teacher)}
+                              disabled={sendingWhatsAppId === teacher.id}
+                            >
+                              {sendingWhatsAppId === teacher.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <WhatsAppIcon className="h-4 w-4" />
+                              )}
+                              <span className="sr-only">{t("teachers.sendWhatsApp") || "Send WhatsApp"}</span>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>
+                              {sendingWhatsAppId === teacher.id
+                                ? t("teachers.sending") || "جاري الإرسال..."
+                                : t("teachers.sendWhatsApp") || "Send WhatsApp"}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {onViewCredentials && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 transition-colors"
+                              onClick={() => onViewCredentials(teacher)}
+                            >
+                              <Key className="h-4 w-4" />
+                              <span className="sr-only">{t("teachers.viewCredentials") || "View Credentials"}</span>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{t("teachers.viewCredentials") || "View Credentials"}</p>
                           </TooltipContent>
                         </Tooltip>
                       )}

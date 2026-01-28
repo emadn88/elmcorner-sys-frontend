@@ -21,12 +21,14 @@ import {
 } from "@/components/ui/select";
 import { Student } from "@/lib/api/types";
 import { FamilyService } from "@/lib/services/family.service";
-import { Family } from "@/lib/api/types";
+import { Family, Course } from "@/lib/api/types";
+import { CourseService } from "@/lib/services/course.service";
 import { useLanguage } from "@/contexts/language-context";
 import { COUNTRIES, getTimezoneForCountry, getCurrencyForCountry } from "@/lib/countries-timezones";
 import { validateWhatsAppNumber, autoFormatPhoneNumber, ValidationResult } from "@/lib/whatsapp-validator";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, XCircle, AlertCircle, ExternalLink } from "lucide-react";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 interface StudentFormModalProps {
   open: boolean;
@@ -56,8 +58,9 @@ export function StudentFormModal({
     currency: "USD",
     timezone: "Africa/Cairo",
     language: "ar" as "ar" | "en" | "fr",
-    status: "active" as "active" | "paused" | "stopped",
+    status: "initial" as "initial" | "active" | "paused" | "stopped",
     type: "trial" as "trial" | "confirmed",
+    course_ids: [] as number[],
   });
 
   const [families, setFamilies] = useState<Family[]>([]);
@@ -75,6 +78,27 @@ export function StudentFormModal({
     whatsappLink?: string;
   } | null>(null);
   const countryDropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Courses state
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [isLoadingCourses, setIsLoadingCourses] = useState(false);
+
+  // Load courses
+  useEffect(() => {
+    if (open) {
+      setIsLoadingCourses(true);
+      CourseService.getCourses({ status: 'active', per_page: 100 })
+        .then((response) => {
+          setCourses(response.data || []);
+        })
+        .catch(() => {
+          setCourses([]);
+        })
+        .finally(() => {
+          setIsLoadingCourses(false);
+        });
+    }
+  }, [open]);
 
   // Load families for autocomplete
   useEffect(() => {
@@ -131,8 +155,9 @@ export function StudentFormModal({
         currency: student.currency || "USD",
         timezone: student.timezone || "Africa/Cairo",
         language: student.language || "ar",
-        status: student.status,
+        status: student.status || "initial",
         type: student.type || "trial",
+        course_ids: student.courses?.map((c) => c.id) || [],
       });
       // Set display values but don't trigger dropdowns
       if (student.family) {
@@ -154,8 +179,9 @@ export function StudentFormModal({
         currency: "USD",
         timezone: "Africa/Cairo",
         language: "ar",
-        status: "active",
+        status: "initial",
         type: "trial",
+        course_ids: [],
       });
       setFamilySearch("");
       setIsFamilySearching(false);
@@ -186,7 +212,7 @@ export function StudentFormModal({
     }
     
     try {
-      const submitData: Partial<Student> = {
+      const submitData: any = {
         full_name: formData.full_name,
         email: formData.email || undefined,
         whatsapp: formData.whatsapp || undefined,
@@ -199,6 +225,9 @@ export function StudentFormModal({
       };
       if (formData.family_id) {
         submitData.family_id = Number(formData.family_id);
+      }
+      if (formData.course_ids.length > 0) {
+        submitData.course_ids = formData.course_ids;
       }
       await onSave(submitData);
     } catch (err: any) {
@@ -355,6 +384,7 @@ export function StudentFormModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="initial">{t("students.initial") || "Initial"}</SelectItem>
                   <SelectItem value="active">{t("students.active")}</SelectItem>
                   <SelectItem value="paused">{t("students.paused")}</SelectItem>
                   <SelectItem value="stopped">{t("students.stopped")}</SelectItem>
@@ -565,6 +595,31 @@ export function StudentFormModal({
                 </SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <MultiSelect
+              options={courses.map((c) => ({ id: c.id, name: c.name }))}
+              selected={formData.course_ids}
+              onChange={(ids) => setFormData({ ...formData, course_ids: ids })}
+              onSearch={(searchTerm) => {
+                setIsLoadingCourses(true);
+                CourseService.getCourses({ search: searchTerm, status: 'active', per_page: 100 })
+                  .then((response) => {
+                    setCourses(response.data || []);
+                  })
+                  .catch(() => {
+                    setCourses([]);
+                  })
+                  .finally(() => {
+                    setIsLoadingCourses(false);
+                  });
+              }}
+              placeholder={t("students.selectCourses") || "Select courses (optional)"}
+              label={t("students.courses") || "Courses"}
+              searchPlaceholder={t("students.searchCourses") || "Search courses..."}
+              isLoading={isLoadingCourses}
+            />
           </div>
 
           <DialogFooter>
