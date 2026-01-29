@@ -12,6 +12,7 @@ import { useLanguage } from "@/contexts/language-context";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { TeacherFormModal } from "@/components/teachers/teacher-form-modal";
 import { TeachersTable } from "@/components/teachers/teachers-table";
+import { TeachersCardView } from "@/components/teachers/teachers-card-view";
 import { TeachersFilters } from "@/components/teachers/teachers-filters";
 import { TeacherDetailsModal } from "@/components/teachers/teacher-details-modal";
 import { TeacherCredentialsModal } from "@/components/teachers/teacher-credentials-modal";
@@ -308,22 +309,38 @@ export default function TeachersPage() {
         </motion.div>
       )}
 
-      {/* Table */}
+      {/* Table or Card View */}
       <motion.div variants={itemVariants}>
-        <TeachersTable
-          teachers={teachers}
-          selectedIds={selectedIds.map(String)}
-          onSelect={(id) => handleSelect(Number(id))}
-          onSelectAll={handleSelectAll}
-          onEdit={handleEditTeacher}
-          onDelete={handleDeleteTeacher}
-          onView={handleViewTeacher}
-          onViewPerformance={handleViewPerformance}
-          onViewDetails={handleViewDetails}
-          onSendWhatsApp={handleSendWhatsApp}
-          onViewCredentials={handleViewCredentials}
-          sendingWhatsAppId={sendingWhatsAppId}
-        />
+        {filters.search ? (
+          // Show card view when searching
+          <TeachersCardView
+            teachers={teachers}
+            onEdit={handleEditTeacher}
+            onDelete={handleDeleteTeacher}
+            onView={handleViewTeacher}
+            onViewPerformance={handleViewPerformance}
+            onViewDetails={handleViewDetails}
+            onSendWhatsApp={handleSendWhatsApp}
+            onViewCredentials={handleViewCredentials}
+            sendingWhatsAppId={sendingWhatsAppId}
+          />
+        ) : (
+          // Show table view when not searching
+          <TeachersTable
+            teachers={teachers}
+            selectedIds={selectedIds.map(String)}
+            onSelect={(id) => handleSelect(Number(id))}
+            onSelectAll={handleSelectAll}
+            onEdit={handleEditTeacher}
+            onDelete={handleDeleteTeacher}
+            onView={handleViewTeacher}
+            onViewPerformance={handleViewPerformance}
+            onViewDetails={handleViewDetails}
+            onSendWhatsApp={handleSendWhatsApp}
+            onViewCredentials={handleViewCredentials}
+            sendingWhatsAppId={sendingWhatsAppId}
+          />
+        )}
       </motion.div>
 
       {/* Modals */}
