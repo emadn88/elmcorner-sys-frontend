@@ -7,6 +7,7 @@ import { SidebarProvider, useSidebar } from "@/contexts/sidebar-context";
 import { useLanguage } from "@/contexts/language-context";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { LoadingPage } from "@/components/ui/loading-page";
+import { cn } from "@/lib/utils";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -22,7 +23,8 @@ function DashboardContent({ children }: { children: ReactNode }) {
 
   const sidebarWidth = isOpen ? 256 : 80;
 
-  // RTL-aware margin
+  // On mobile, sidebar overlays, so no margin needed
+  // RTL-aware margin for desktop
   const marginStyle = direction === "rtl"
     ? { marginRight: `${sidebarWidth}px` }
     : { marginLeft: `${sidebarWidth}px` };
@@ -44,15 +46,22 @@ function DashboardContent({ children }: { children: ReactNode }) {
       </div>
       <Sidebar />
       <div
+        className={cn(
+          "relative z-10 min-h-screen w-full",
+          // On mobile: full width (sidebar overlays)
+          // On desktop: account for sidebar width
+          "md:transition-all"
+        )}
         style={{
+          // Desktop styles
           ...marginStyle,
           width: `calc(100% - ${sidebarWidth}px)`,
           transition: `${direction === "rtl" ? "margin-right" : "margin-left"} 0.3s ease-in-out, width 0.3s ease-in-out`,
         }}
-        className="relative z-10 min-h-screen"
+        id="main-content"
       >
         <Header />
-        <main className="w-full p-6" style={{ paddingTop: "6rem" }}>{children}</main>
+        <main className="w-full p-4 md:p-6 pt-16 md:pt-20">{children}</main>
       </div>
     </div>
   );

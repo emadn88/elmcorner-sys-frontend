@@ -10,6 +10,7 @@ import {
   Check,
   Moon,
   Sun,
+  Menu,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -70,7 +71,7 @@ export function Header() {
   const sidebarWidth = isOpen ? 256 : 80;
   const headerWidth = isOpen ? "calc(100% - 256px)" : "calc(100% - 80px)";
   
-  // RTL-aware positioning
+  // RTL-aware positioning - on mobile, always full width
   const headerPosition = direction === "rtl" 
     ? { right: `${sidebarWidth}px` }
     : { left: `${sidebarWidth}px` };
@@ -78,9 +79,11 @@ export function Header() {
   const ChevronIcon = direction === "rtl" ? ChevronLeft : ChevronRight;
   const isTeacher = user?.role === "teacher";
 
+  const { toggle } = useSidebar();
+
   return (
     <header
-      className="fixed top-0 z-50 h-20 bg-gradient-to-r from-white via-gray-50/30 to-white backdrop-blur-xl border-b border-gray-100 shadow-sm"
+      className="fixed top-0 z-50 h-16 md:h-20 bg-gradient-to-r from-white via-gray-50/30 to-white backdrop-blur-xl border-b border-gray-100 shadow-sm"
       style={{ 
         position: "fixed",
         top: 0,
@@ -91,13 +94,23 @@ export function Header() {
         transition: `${direction === "rtl" ? "right" : "left"} 0.3s ease-in-out, width 0.3s ease-in-out`,
         willChange: `${direction === "rtl" ? "right" : "left"}, width`,
       }}
+      id="main-header"
     >
-      <div className="flex h-full items-center justify-between px-4 md:px-6">
+      <div className="flex h-full items-center justify-between px-3 md:px-4 lg:px-6">
+        {/* Mobile Menu Button */}
+        <button
+          onClick={toggle}
+          className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors mr-2"
+          aria-label="Toggle sidebar"
+        >
+          <Menu className="h-5 w-5 text-gray-600" />
+        </button>
+
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-gray-400 font-medium">{t("layout.dashboard")}</span>
-          <ChevronIcon className="h-4 w-4 text-gray-300" />
-          <span className="text-gray-900 font-semibold">{t("layout.overview")}</span>
+        <div className="flex items-center gap-2 text-xs md:text-sm flex-1 min-w-0">
+          <span className="text-gray-400 font-medium hidden sm:inline">{t("layout.dashboard")}</span>
+          <ChevronIcon className="h-3 w-3 md:h-4 md:w-4 text-gray-300 hidden sm:block" />
+          <span className="text-gray-900 font-semibold truncate">{t("layout.overview")}</span>
         </div>
 
         {/* Right Section */}

@@ -371,13 +371,13 @@ export default function TeacherAvailabilityPage() {
   const weekDates = getWeekDates();
 
   return (
-    <div className="space-y-6 rtl w-full" dir="rtl" style={{ textAlign: 'right', direction: 'rtl', width: '100%' }}>
+    <div className="space-y-4 sm:space-y-6 rtl w-full" dir="rtl" style={{ textAlign: 'right', direction: 'rtl', width: '100%' }}>
       <div className="flex items-center justify-between flex-row-reverse w-full">
         <div className="text-right w-full" style={{ textAlign: 'right', width: '100%' }}>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white text-right w-full" style={{ textAlign: 'right', width: '100%' }}>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white text-right w-full" style={{ textAlign: 'right', width: '100%' }}>
             {getText("teacher.availability")}
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1 text-right w-full" style={{ textAlign: 'right', width: '100%' }}>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1 text-right w-full" style={{ textAlign: 'right', width: '100%' }}>
             {getText("teacher.availabilityDescription")}
           </p>
         </div>
@@ -392,15 +392,15 @@ export default function TeacherAvailabilityPage() {
       {/* Availability Settings - Collapsible */}
       <Card className="text-right rtl" dir="rtl" style={{ textAlign: 'right', direction: 'rtl' }}>
         <CardHeader 
-          className="text-right rtl cursor-pointer" 
+          className="text-right rtl cursor-pointer p-4 sm:p-6" 
           dir="rtl" 
           style={{ textAlign: 'right', direction: 'rtl', width: '100%' }}
           onClick={() => setIsAvailabilityCollapsed(!isAvailabilityCollapsed)}
         >
-          <div className="flex items-center justify-between flex-row-reverse w-full">
-            <CardTitle className="flex items-center gap-2 flex-row-reverse text-right w-full rtl" dir="rtl" style={{ textAlign: 'right', direction: 'rtl', justifyContent: 'flex-end', width: '100%' }}>
-              <Clock className="h-5 w-5" />
-              <span className="w-full text-right" style={{ textAlign: 'right', direction: 'rtl', width: '100%' }}>{getText("teacher.setAvailability")}</span>
+          <div className="flex items-center justify-between flex-row-reverse w-full gap-2">
+            <CardTitle className="flex items-center gap-2 flex-row-reverse text-right flex-1 rtl" dir="rtl" style={{ textAlign: 'right', direction: 'rtl', justifyContent: 'flex-end' }}>
+              <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="text-sm sm:text-base text-right" style={{ textAlign: 'right', direction: 'rtl' }}>{getText("teacher.setAvailability")}</span>
             </CardTitle>
             <Button
               variant="ghost"
@@ -421,9 +421,9 @@ export default function TeacherAvailabilityPage() {
           </div>
         </CardHeader>
         {!isAvailabilityCollapsed && (
-          <CardContent className="text-right rtl" dir="rtl" style={{ textAlign: 'right', direction: 'rtl' }}>
-            <div className="space-y-4 rtl" dir="rtl" style={{ direction: 'rtl', textAlign: 'right' }}>
-              <div className="grid grid-cols-2 gap-4 rtl" dir="rtl" style={{ direction: 'rtl' }}>
+          <CardContent className="text-right rtl p-4 sm:p-6" dir="rtl" style={{ textAlign: 'right', direction: 'rtl' }}>
+            <div className="space-y-3 sm:space-y-4 rtl" dir="rtl" style={{ direction: 'rtl', textAlign: 'right' }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 rtl" dir="rtl" style={{ direction: 'rtl' }}>
                 <div className="text-right rtl" dir="rtl" style={{ textAlign: 'right', direction: 'rtl', width: '100%' }}>
                   <Label 
                     className="block mb-2 text-right w-full rtl" 
@@ -463,23 +463,23 @@ export default function TeacherAvailabilityPage() {
               {DAYS.map((day) => {
                 const daySlots = availability.filter((slot) => slot.day_of_week === day.value);
                 return (
-                  <div key={day.value} className="border-2 border-gray-200 dark:border-gray-700 rounded-lg p-4 text-right rtl bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-shadow duration-200" dir="rtl" style={{ textAlign: 'right', direction: 'rtl', width: '100%' }}>
-                    <div className="flex items-center justify-between mb-3 flex-row-reverse w-full gap-3" style={{ direction: 'rtl', width: '100%' }}>
-                      <h3 className="font-medium text-right flex-1" style={{ textAlign: 'right', direction: 'rtl' }}>
+                  <div key={day.value} className="border-2 border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4 text-right rtl bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-shadow duration-200" dir="rtl" style={{ textAlign: 'right', direction: 'rtl', width: '100%' }}>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 flex-row-reverse w-full gap-2 sm:gap-3" style={{ direction: 'rtl', width: '100%' }}>
+                      <h3 className="font-medium text-sm sm:text-base text-right flex-1" style={{ textAlign: 'right', direction: 'rtl' }}>
                         {day.labelAr}
                       </h3>
                       <Button
                         size="sm"
                         onClick={() => addAvailabilitySlot(day.value)}
-                        className="flex-row-reverse flex-shrink-0 bg-green-500 hover:bg-green-600 text-white border-0 shadow-sm hover:shadow-md transition-all duration-200"
+                        className="flex-row-reverse flex-shrink-0 bg-green-500 hover:bg-green-600 text-white border-0 shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                         style={{ direction: 'rtl', flexShrink: 0 }}
                       >
-                        <Plus className="h-4 w-4 ml-2" />
+                        <Plus className="h-3 w-3 sm:h-4 sm:w-4 ml-1 sm:ml-2" />
                         <span style={{ textAlign: 'right' }}>{getText("teacher.addTimeSlot")}</span>
                       </Button>
                     </div>
                     {daySlots.length === 0 ? (
-                      <p className="text-gray-500 dark:text-gray-400 text-sm text-right w-full" style={{ textAlign: 'right', direction: 'rtl', width: '100%' }}>
+                      <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm text-right w-full" style={{ textAlign: 'right', direction: 'rtl', width: '100%' }}>
                         {getText("teacher.noAvailabilitySet")}
                       </p>
                     ) : (
@@ -487,12 +487,12 @@ export default function TeacherAvailabilityPage() {
                         {daySlots.map((slot) => (
                           <div
                             key={slot.id}
-                            className="flex flex-col gap-2 p-3 border-2 border-blue-200 dark:border-blue-800 rounded-lg w-full bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors duration-200"
+                            className="flex flex-col gap-2 p-2 sm:p-3 border-2 border-blue-200 dark:border-blue-800 rounded-lg w-full bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors duration-200"
                             style={{ direction: 'rtl', width: '100%' }}
                           >
-                            <div className="flex items-center gap-3 flex-row-reverse w-full" style={{ direction: 'rtl' }}>
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 flex-row-reverse w-full" style={{ direction: 'rtl' }}>
                               {/* From Time */}
-                              <div className="flex flex-col gap-1 flex-1">
+                              <div className="flex flex-col gap-1 flex-1 min-w-0">
                                 <Label className="text-xs font-semibold text-gray-600 dark:text-gray-400 text-right" style={{ textAlign: 'right', direction: 'rtl' }}>
                                   {getText("teacher.fromTime")}
                                 </Label>
@@ -502,14 +502,14 @@ export default function TeacherAvailabilityPage() {
                                   onChange={(e) =>
                                     updateAvailabilitySlot(slot.id, "start_time", e.target.value)
                                   }
-                                  className="px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 w-full"
+                                  className="px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 dark:border-gray-600 rounded-md text-xs sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 w-full"
                                   dir="ltr"
                                   style={{ textAlign: 'left', direction: 'ltr' }}
                                 />
                               </div>
                               
                               {/* To Time */}
-                              <div className="flex flex-col gap-1 flex-1">
+                              <div className="flex flex-col gap-1 flex-1 min-w-0">
                                 <Label className="text-xs font-semibold text-gray-600 dark:text-gray-400 text-right" style={{ textAlign: 'right', direction: 'rtl' }}>
                                   {getText("teacher.toTime")}
                                 </Label>
@@ -519,20 +519,20 @@ export default function TeacherAvailabilityPage() {
                                   onChange={(e) =>
                                     updateAvailabilitySlot(slot.id, "end_time", e.target.value)
                                   }
-                                  className="px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 w-full"
+                                  className="px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 dark:border-gray-600 rounded-md text-xs sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 w-full"
                                   dir="ltr"
                                   style={{ textAlign: 'left', direction: 'ltr' }}
                                 />
                               </div>
                               
                               {/* Remove Button */}
-                              <div className="flex items-end pb-0.5">
+                              <div className="flex items-end pb-0 sm:pb-0.5">
                                 <Button
                                   size="sm"
                                   onClick={() => removeAvailabilitySlot(slot.id)}
-                                  className="bg-red-500 hover:bg-red-600 text-white border-0 shadow-sm hover:shadow-md transition-all duration-200 rounded-md h-10"
+                                  className="bg-red-500 hover:bg-red-600 text-white border-0 shadow-sm hover:shadow-md transition-all duration-200 rounded-md h-9 sm:h-10 w-full sm:w-auto"
                                 >
-                                  <X className="h-4 w-4" />
+                                  <X className="h-3 w-3 sm:h-4 sm:w-4" />
                                 </Button>
                               </div>
                             </div>
@@ -544,12 +544,12 @@ export default function TeacherAvailabilityPage() {
                 );
               })}
             </div>
-            <div className="flex justify-end flex-row-reverse pt-4" style={{ direction: 'rtl', justifyContent: 'flex-start' }}>
+            <div className="flex justify-end flex-row-reverse pt-3 sm:pt-4" style={{ direction: 'rtl', justifyContent: 'flex-start' }}>
               <Button 
                 onClick={handleSaveAvailability} 
                 disabled={isSaving} 
                 size="lg" 
-                className="flex-row-reverse bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-md hover:shadow-lg transition-all duration-200 px-6 py-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed" 
+                className="flex-row-reverse bg-blue-600 hover:bg-blue-700 text-white border-0 shadow-md hover:shadow-lg transition-all duration-200 px-4 sm:px-6 py-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base w-full sm:w-auto" 
                 style={{ direction: 'rtl' }}
               >
                 <span style={{ textAlign: 'right' }}>
@@ -565,14 +565,14 @@ export default function TeacherAvailabilityPage() {
 
       {/* Search */}
       <Card className="text-right" style={{ textAlign: 'right' }}>
-        <CardContent className="pt-6 text-right" style={{ textAlign: 'right' }}>
+        <CardContent className="pt-4 sm:pt-6 p-4 sm:p-6 text-right" style={{ textAlign: 'right' }}>
           <div className="relative">
             <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               placeholder={getText("teacher.searchEvents")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pr-10 text-right"
+              className="pr-10 text-right text-sm sm:text-base"
               dir="rtl"
               style={{ textAlign: 'right', direction: 'rtl' }}
             />
@@ -583,23 +583,23 @@ export default function TeacherAvailabilityPage() {
       {/* Week Navigation */}
       <Card className="text-right" style={{ textAlign: 'right' }}>
         <CardHeader className="text-right" style={{ textAlign: 'right' }}>
-          <div className="flex items-center justify-between flex-row-reverse">
-            <CardTitle className="flex items-center gap-2 flex-row-reverse text-right w-full" style={{ textAlign: 'right', justifyContent: 'flex-start' }}>
-              <Calendar className="h-5 w-5" />
-              <span style={{ textAlign: 'right' }}>{getText("teacher.weekView")}</span>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 flex-row-reverse">
+            <CardTitle className="flex items-center gap-2 flex-row-reverse text-right w-full sm:w-auto" style={{ textAlign: 'right', justifyContent: 'flex-start' }}>
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="text-base sm:text-lg" style={{ textAlign: 'right' }}>{getText("teacher.weekView")}</span>
             </CardTitle>
-            <div className="flex items-center gap-2 flex-row-reverse">
+            <div className="flex items-center gap-1 sm:gap-2 flex-row-reverse w-full sm:w-auto justify-between sm:justify-end">
               {/* Previous week button - shows right arrow in RTL (goes to earlier week) */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => navigateWeek("prev")}
-                className="flex items-center justify-center"
+                className="flex items-center justify-center h-8 px-2 sm:px-3"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
               {/* Week date range - right aligned */}
-              <span className="text-sm font-medium min-w-[200px] text-right px-2" style={{ textAlign: 'right', direction: 'rtl', display: 'block', width: '100%' }}>
+              <span className="text-xs sm:text-sm font-medium text-right px-1 sm:px-2 flex-1 sm:flex-none sm:min-w-[200px]" style={{ textAlign: 'right', direction: 'rtl' }}>
                 {weekDates[0].toLocaleDateString("ar-SA", { 
                   month: "short", 
                   day: "numeric" 
@@ -613,38 +613,38 @@ export default function TeacherAvailabilityPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => navigateWeek("next")}
-                className="flex items-center justify-center"
+                className="flex items-center justify-center h-8 px-2 sm:px-3"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setCurrentWeekStart(new Date())}
-                className="flex items-center justify-center"
+                className="flex items-center justify-center h-8 px-2 sm:px-3 text-xs sm:text-sm"
               >
                 {getText("teacher.today")}
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="text-right" style={{ textAlign: 'right' }}>
-          <div className="overflow-x-auto" dir="rtl" style={{ direction: 'rtl' }}>
-            <div className="min-w-full">
-              <div className="grid grid-cols-8 gap-2" style={{ direction: 'rtl' }}>
+        <CardContent className="text-right p-2 sm:p-6" style={{ textAlign: 'right' }}>
+          <div className="overflow-x-auto -mx-2 sm:mx-0" dir="rtl" style={{ direction: 'rtl' }}>
+            <div className="min-w-[800px] sm:min-w-full">
+              <div className="grid grid-cols-8 gap-0.5 sm:gap-1 md:gap-2" style={{ direction: 'rtl' }}>
                 {/* Time column - First in code, appears on right in RTL */}
-                <div className="sticky right-0 bg-white dark:bg-gray-800 z-10 border-l border-r-0 text-right min-w-[80px]" style={{ textAlign: 'right', direction: 'rtl', paddingRight: '8px', paddingLeft: '4px', paddingTop: '8px', paddingBottom: '8px' }}>
+                <div className="sticky right-0 bg-white dark:bg-gray-800 z-10 border-l border-r-0 text-right min-w-[60px] sm:min-w-[80px]" style={{ textAlign: 'right', direction: 'rtl', paddingRight: '4px', paddingLeft: '2px', paddingTop: '4px', paddingBottom: '4px' }}>
                   {/* Time column header */}
-                  <div className="h-12 border-b p-2 bg-gray-50 dark:bg-gray-900 text-right flex items-center justify-end" style={{ textAlign: 'right', direction: 'rtl', paddingRight: '4px', paddingLeft: '2px' }}>
-                    <div className="font-semibold text-sm text-right" style={{ textAlign: 'right' }}>
+                  <div className="h-10 sm:h-12 border-b p-1 sm:p-2 bg-gray-50 dark:bg-gray-900 text-right flex items-center justify-end" style={{ textAlign: 'right', direction: 'rtl' }}>
+                    <div className="font-semibold text-xs sm:text-sm text-right" style={{ textAlign: 'right' }}>
                       {getText("teacher.time")}
                     </div>
                   </div>
                   {TIME_SLOTS.map((time) => (
                     <div
                       key={time}
-                      className="h-16 border-b text-xs text-gray-500 dark:text-gray-400 flex items-center justify-end text-right"
-                      style={{ textAlign: 'right', justifyContent: 'flex-end', direction: 'rtl', paddingRight: '4px' }}
+                      className="h-12 sm:h-16 border-b text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 flex items-center justify-end text-right px-1"
+                      style={{ textAlign: 'right', justifyContent: 'flex-end', direction: 'rtl' }}
                     >
                       {time}
                     </div>
@@ -658,13 +658,13 @@ export default function TeacherAvailabilityPage() {
                   const dayEvents = getEventsForDate(date);
                   
                   return (
-                    <div key={idx} className="border-l border-r-0 first:border-l-0 text-right" style={{ textAlign: 'right', direction: 'rtl' }}>
+                    <div key={idx} className="border-l border-r-0 first:border-l-0 text-right min-w-[90px] sm:min-w-[110px]" style={{ textAlign: 'right', direction: 'rtl' }}>
                       {/* Day header */}
-                      <div className="h-12 border-b p-2 bg-gray-50 dark:bg-gray-900 text-right" style={{ textAlign: 'right', direction: 'rtl', paddingRight: '8px', paddingLeft: '8px' }}>
-                        <div className="font-semibold text-sm text-right" style={{ textAlign: 'right' }}>
+                      <div className="h-10 sm:h-12 border-b p-1 sm:p-2 bg-gray-50 dark:bg-gray-900 text-right" style={{ textAlign: 'right', direction: 'rtl' }}>
+                        <div className="font-semibold text-xs sm:text-sm text-right" style={{ textAlign: 'right' }}>
                           {dayInfo?.labelAr}
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 text-right" style={{ textAlign: 'right' }}>
+                        <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 text-right" style={{ textAlign: 'right' }}>
                           {date.toLocaleDateString("ar-SA", { 
                             month: "short", 
                             day: "numeric" 
@@ -684,7 +684,7 @@ export default function TeacherAvailabilityPage() {
                             <div
                               key={time}
                               className={cn(
-                                "h-16 border-b relative",
+                                "h-12 sm:h-16 border-b relative",
                                 status === "available" && "bg-green-50 dark:bg-green-900/20",
                                 status === "booked" && "bg-blue-50 dark:bg-blue-900/20",
                                 eventAtTime && "cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-800/30"
@@ -692,9 +692,9 @@ export default function TeacherAvailabilityPage() {
                               onClick={() => eventAtTime && handleEventClick(eventAtTime)}
                             >
                               {eventAtTime && (
-                                <div className="absolute inset-0 p-1 text-xs text-right">
+                                <div className="absolute inset-0 p-0.5 sm:p-1 text-[9px] sm:text-xs text-right">
                                   <div className={cn(
-                                    "rounded px-1 py-0.5 truncate text-right",
+                                    "rounded px-0.5 sm:px-1 py-0.5 truncate text-right",
                                     eventAtTime.type === "class" 
                                       ? "bg-blue-500 text-white" 
                                       : "bg-yellow-500 text-white"

@@ -191,10 +191,10 @@ export default function TeacherTrialsPage() {
       className="space-y-6"
     >
       <motion.div variants={itemVariants}>
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
           {t("teacher.trials") || "Trial Classes"}
         </h1>
-        <p className="text-gray-600 mt-1">
+        <p className="text-sm sm:text-base text-gray-600 mt-1">
           {t("teacher.viewTrials") || "View and manage your assigned trial classes"}
         </p>
       </motion.div>
@@ -202,7 +202,7 @@ export default function TeacherTrialsPage() {
       {/* Statistics Cards */}
       <motion.div
         variants={itemVariants}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6"
       >
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -368,7 +368,7 @@ export default function TeacherTrialsPage() {
 
       {/* Trials List */}
       <motion.div variants={itemVariants}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {trials.map((trial) => (
             <Card key={trial.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>

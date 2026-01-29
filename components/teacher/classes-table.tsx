@@ -91,29 +91,29 @@ export function ClassesTable({
   }
 
   return (
-    <div className="rounded-md border border-gray-200 bg-white">
+    <div className="rounded-md border border-gray-200 bg-white overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow className="bg-gray-50/50">
-            <TableHead className="min-w-[120px]">
+            <TableHead className="min-w-[120px] text-xs sm:text-sm">
               {t("classes.student") || "Student"}
             </TableHead>
-            <TableHead className="min-w-[120px]">
+            <TableHead className="min-w-[120px] text-xs sm:text-sm hidden sm:table-cell">
               {t("classes.course") || "Course"}
             </TableHead>
-            <TableHead className="min-w-[100px]">
+            <TableHead className="min-w-[100px] text-xs sm:text-sm">
               {t("classes.date") || "Date"}
             </TableHead>
-            <TableHead className="min-w-[100px]">
+            <TableHead className="min-w-[100px] text-xs sm:text-sm">
               {t("classes.time") || "Time"}
             </TableHead>
-            <TableHead className="min-w-[80px]">
+            <TableHead className="min-w-[80px] text-xs sm:text-sm hidden md:table-cell">
               {t("classes.duration") || "Duration"}
             </TableHead>
-            <TableHead className="min-w-[100px]">
+            <TableHead className="min-w-[100px] text-xs sm:text-sm">
               {t("classes.statusLabel") || "Status"}
             </TableHead>
-            <TableHead className={cn("min-w-[180px] w-[180px]", direction === "rtl" ? "text-left" : "text-right")}>
+            <TableHead className={cn("min-w-[120px] sm:min-w-[180px] sm:w-[180px] text-xs sm:text-sm", direction === "rtl" ? "text-left" : "text-right")}>
               {t("classes.actions") || "Actions"}
             </TableHead>
           </TableRow>
@@ -153,42 +153,46 @@ export function ClassesTable({
                     "min-w-0",
                     direction === "rtl" ? "text-right" : "text-left"
                   )}>
-                    <div className="font-medium text-gray-900">
+                    <div className="font-medium text-gray-900 text-xs sm:text-sm">
                       {classItem.student?.full_name || "Unknown Student"}
                     </div>
                     {classItem.student?.email && (
-                      <div className="text-xs text-gray-500 truncate">
+                      <div className="text-xs text-gray-500 truncate hidden sm:block">
                         {classItem.student.email}
                       </div>
                     )}
+                    {/* Show course on mobile in student cell */}
+                    <div className="text-xs text-gray-600 sm:hidden mt-1">
+                      {classItem.course?.name || "Unknown Course"}
+                    </div>
                   </div>
                 </TableCell>
-                <TableCell>
-                  <div className="text-sm text-gray-900 font-medium">
+                <TableCell className="hidden sm:table-cell">
+                  <div className="text-xs sm:text-sm text-gray-900 font-medium">
                     {classItem.course?.name || "Unknown Course"}
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-xs sm:text-sm text-gray-600">
                     {formatDate(classItem.class_date)}
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-xs sm:text-sm text-gray-600">
                     {formatTime(classItem.start_time)} - {formatTime(classItem.end_time)}
                   </div>
                 </TableCell>
-                <TableCell>
-                  <div className="text-sm text-gray-600">
+                <TableCell className="hidden md:table-cell">
+                  <div className="text-xs sm:text-sm text-gray-600">
                     {classItem.duration ? `${classItem.duration} min` : "—"}
                   </div>
                 </TableCell>
                 <TableCell>
                   {getStatusBadge(classItem.status)}
                 </TableCell>
-                <TableCell className="min-w-[180px]">
+                <TableCell className="min-w-[120px] sm:min-w-[180px]">
                   <div className={cn(
-                    "flex items-center gap-1",
+                    "flex items-center gap-1 flex-wrap",
                     direction === "rtl" ? "justify-start" : "justify-end"
                   )}>
                     <TooltipProvider>

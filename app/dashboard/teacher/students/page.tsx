@@ -83,10 +83,10 @@ export default function TeacherStudentsPage() {
       className="space-y-6"
     >
       <motion.div variants={itemVariants}>
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
           {t("teacher.myStudents") || "My Students"}
         </h1>
-        <p className="text-gray-600 mt-1">
+        <p className="text-sm sm:text-base text-gray-600 mt-1">
           {t("teacher.viewStudents") || "View your assigned students"}
         </p>
       </motion.div>
@@ -94,7 +94,7 @@ export default function TeacherStudentsPage() {
       {/* Statistics Cards */}
       <motion.div
         variants={itemVariants}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6"
       >
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -187,7 +187,7 @@ export default function TeacherStudentsPage() {
       )}
 
       <motion.div variants={itemVariants}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {students.map((student: any) => (
             <Card key={student.id}>
               <CardHeader>

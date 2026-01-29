@@ -460,10 +460,22 @@ export function Sidebar() {
 
   return (
     <TooltipProvider>
+      {/* Mobile Overlay */}
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={toggle}
+        />
+      )}
       <motion.aside
         initial={false}
         animate={{
           width: isOpen ? 256 : 80,
+          x: isOpen ? 0 : (direction === "rtl" ? "100%" : "-100%"),
         }}
         transition={{
           type: "spring",
@@ -472,9 +484,11 @@ export function Sidebar() {
           mass: 0.5,
         }}
         className={cn(
-          "fixed top-0 z-40 h-screen bg-gradient-to-b from-gray-900 via-emerald-950 to-gray-900 flex flex-col",
+          "fixed top-0 z-50 h-screen bg-gradient-to-b from-gray-900 via-emerald-950 to-gray-900 flex flex-col",
           "shadow-xl backdrop-blur-md border-r border-gray-700/50",
           "overflow-hidden",
+          // On desktop, always visible (no x transform)
+          "md:!translate-x-0",
           direction === "rtl"
             ? "right-0 border-l border-gray-700/50"
             : "left-0 border-r border-gray-700/50"

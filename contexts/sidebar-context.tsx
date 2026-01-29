@@ -22,6 +22,10 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     const saved = localStorage.getItem("sidebar-open");
     if (saved !== null) {
       setIsOpen(JSON.parse(saved));
+    } else {
+      // On mobile, default to closed; on desktop, default to open
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+      setIsOpen(!isMobile);
     }
   }, []);
 
