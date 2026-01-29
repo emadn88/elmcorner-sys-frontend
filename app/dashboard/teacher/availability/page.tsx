@@ -112,12 +112,22 @@ export default function TeacherAvailabilityPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<Record<string, string[]> | null>(null);
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [apologyReason, setApologyReason] = useState("");
   const [newStatus, setNewStatus] = useState("");
   const [isAvailabilityCollapsed, setIsAvailabilityCollapsed] = useState(false);
+  const [selectedDateEvent, setSelectedDateEvent] = useState<{
+    type: 'free' | 'trial' | 'booked';
+    date: string;
+    startTime: string;
+    endTime: string;
+    data?: ClassInstance | TrialClass;
+  } | null>(null);
+  const [isDateEventModalOpen, setIsDateEventModalOpen] = useState(false);
   
   // Date range for availability
   const [dateFrom, setDateFrom] = useState(() => {
@@ -144,6 +154,215 @@ export default function TeacherAvailabilityPage() {
     fetchData();
   }, [currentWeekStart]);
 
+  // Normalize time format to HH:mm (remove seconds if present)
+  const normalizeTime = (time: string): string => {
+    if (!time) return "";
+    // If time is in HH:mm:ss format, extract HH:mm
+    if (time.includes(":") && time.split(":").length === 3) {
+      const [hours, minutes] = time.split(":");
+      return `${hours}:${minutes}`;
+    }
+    // If already in HH:mm format, return as is
+    return time;
+  };
+
+  // Helper function to translate field names to Arabic
+  const translateFieldName = (field: string): string => {
+    const fieldTranslations: Record<string, string> = {
+      'availability': 'التوفر',
+      'start_time': 'وقت البداية',
+      'end_time': 'وقت النهاية',
+      'day_of_week': 'يوم الأسبوع',
+      'timezone': 'المنطقة الزمنية',
+      'is_available': 'متاح',
+    };
+
+    // Handle nested fields like "availability.0.start_time"
+    if (field.includes('.')) {
+      const parts = field.split('.');
+      const lastPart = parts[parts.length - 1];
+      const translatedLast = fieldTranslations[lastPart] || lastPart.replace(/_/g, ' ');
+      
+      // If it's an array index, show it
+      if (parts.length > 1 && /^\d+$/.test(parts[parts.length - 2])) {
+        const index = parts[parts.length - 2];
+        return `التوفر ${parseInt(index) + 1} - ${translatedLast}`;
+      }
+      return translatedLast;
+    }
+
+    return fieldTranslations[field] || field.replace(/_/g, ' ');
+  };
+
+  // Helper function to translate validation error messages to Arabic
+  const translateErrorMessage = (message: string): string => {
+    const errorTranslations: Record<string, string> = {
+      // Required field errors
+      'field is required': 'الحقل مطلوب',
+      'is required': 'مطلوب',
+      'required': 'مطلوب',
+      
+      // Date/Time format errors
+      'must match the format': 'يجب أن يطابق الصيغة',
+      'must be a valid date': 'يجب أن يكون تاريخاً صحيحاً',
+      'must be a valid time': 'يجب أن يكون وقتاً صحيحاً',
+      'date_format': 'يجب أن يطابق الصيغة',
+      'format': 'يجب أن يطابق الصيغة',
+      
+      // Date comparison errors
+      'must be a date after': 'يجب أن يكون تاريخاً بعد',
+      'must be after': 'يجب أن يكون بعد',
+      'after': 'يجب أن يكون بعد',
+      'must be a date before': 'يجب أن يكون تاريخاً قبل',
+      'must be before': 'يجب أن يكون قبل',
+      'before': 'يجب أن يكون قبل',
+      
+      // Type errors
+      'must be an integer': 'يجب أن يكون رقماً صحيحاً',
+      'must be a number': 'يجب أن يكون رقماً',
+      'must be a string': 'يجب أن يكون نصاً',
+      'must be an array': 'يجب أن يكون مصفوفة',
+      'must be a boolean': 'يجب أن يكون true أو false',
+      
+      // Range errors
+      'must be at least': 'يجب أن يكون على الأقل',
+      'must be at most': 'يجب أن يكون على الأكثر',
+      'must be between': 'يجب أن يكون بين',
+      'must be greater than': 'يجب أن يكون أكبر من',
+      'must be less than': 'يجب أن يكون أقل من',
+      
+      // Other common errors
+      'invalid': 'غير صحيح',
+      'already exists': 'موجود بالفعل',
+      'not found': 'غير موجود',
+      'must be unique': 'يجب أن يكون فريداً',
+    };
+
+    // Try to find and replace common patterns
+    let translated = message;
+    
+    // Translate common patterns
+    for (const [english, arabic] of Object.entries(errorTranslations)) {
+      const regex = new RegExp(english.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      translated = translated.replace(regex, arabic);
+    }
+
+    // Handle specific patterns - must be done before field name translation
+    // Pattern: "The availability.0.end_time field must be a date after availability.0.start_time."
+    translated = translated.replace(
+      /The (.+?) field must be a date after (.+?)\./gi,
+      (match, field1, field2) => {
+        const translatedField1 = translateFieldName(field1);
+        const translatedField2 = translateFieldName(field2);
+        return `حقل ${translatedField1} يجب أن يكون تاريخاً بعد ${translatedField2}.`;
+      }
+    );
+    
+    // Pattern: "The availability.0.end_time field must be after availability.0.start_time."
+    translated = translated.replace(
+      /The (.+?) field must be after (.+?)\./gi,
+      (match, field1, field2) => {
+        const translatedField1 = translateFieldName(field1);
+        const translatedField2 = translateFieldName(field2);
+        return `حقل ${translatedField1} يجب أن يكون بعد ${translatedField2}.`;
+      }
+    );
+    
+    // Pattern: "The availability.0.start_time field must match the format H:i."
+    translated = translated.replace(
+      /The (.+?) field must match the format (.+?)\./gi,
+      (match, field, format) => {
+        const translatedField = translateFieldName(field);
+        return `حقل ${translatedField} يجب أن يطابق الصيغة ${format}.`;
+      }
+    );
+    
+    // Pattern: "The availability.0.start_time field is required."
+    translated = translated.replace(
+      /The (.+?) field is required\./gi,
+      (match, field) => {
+        const translatedField = translateFieldName(field);
+        return `حقل ${translatedField} مطلوب.`;
+      }
+    );
+
+    // Translate field names in the message
+    Object.entries({
+      'availability': 'التوفر',
+      'start_time': 'وقت البداية',
+      'end_time': 'وقت النهاية',
+      'day_of_week': 'يوم الأسبوع',
+      'timezone': 'المنطقة الزمنية',
+    }).forEach(([en, ar]) => {
+      const regex = new RegExp(`\\b${en}\\b`, 'gi');
+      translated = translated.replace(regex, ar);
+    });
+
+    // Replace field references like "availability.0.start_time" with translated names
+    translated = translated.replace(
+      /availability\.(\d+)\.(start_time|end_time)/gi,
+      (match, index, field) => {
+        const fieldName = field === 'start_time' ? 'وقت البداية' : 'وقت النهاية';
+        return `التوفر ${parseInt(index) + 1} - ${fieldName}`;
+      }
+    );
+
+    return translated;
+  };
+
+  // Helper function to extract errors from API response
+  const extractErrors = (error: any): { message: string; details: Record<string, string[]> | null } => {
+    let message = error?.message || getText("teacher.failedToUpdateAvailability");
+    let details: Record<string, string[]> | null = null;
+
+    // Check if error has validation errors object
+    if (error?.errors && typeof error.errors === 'object') {
+      details = {};
+      Object.keys(error.errors).forEach((key) => {
+        const fieldErrors = error.errors[key];
+        const errorArray = Array.isArray(fieldErrors) ? fieldErrors : [fieldErrors];
+        // Translate each error message
+        details![key] = errorArray.map(err => translateErrorMessage(err));
+      });
+      // Use first error as main message if available
+      const firstErrorKey = Object.keys(error.errors)[0];
+      const firstError = error.errors[firstErrorKey];
+      if (Array.isArray(firstError) && firstError.length > 0) {
+        message = translateErrorMessage(firstError[0]);
+      } else if (typeof firstError === 'string') {
+        message = translateErrorMessage(firstError);
+      }
+    }
+
+    // Check if error.response has validation errors (Axios error structure)
+    if (error?.response?.data?.errors && typeof error.response.data.errors === 'object') {
+      details = {};
+      Object.keys(error.response.data.errors).forEach((key) => {
+        const fieldErrors = error.response.data.errors[key];
+        const errorArray = Array.isArray(fieldErrors) ? fieldErrors : [fieldErrors];
+        // Translate each error message
+        details![key] = errorArray.map(err => translateErrorMessage(err));
+      });
+      const firstErrorKey = Object.keys(error.response.data.errors)[0];
+      const firstError = error.response.data.errors[firstErrorKey];
+      if (Array.isArray(firstError) && firstError.length > 0) {
+        message = translateErrorMessage(firstError[0]);
+      } else if (typeof firstError === 'string') {
+        message = translateErrorMessage(firstError);
+      }
+    } else if (message) {
+      // Translate the main error message as well
+      message = translateErrorMessage(message);
+    }
+
+    return { message, details };
+  };
+
+  // Helper function to format field names for display
+  const formatFieldName = (field: string): string => {
+    return translateFieldName(field);
+  };
+
   const fetchData = async () => {
     try {
       setIsLoading(true);
@@ -159,11 +378,21 @@ export default function TeacherAvailabilityPage() {
         }),
       ]);
       
-      setAvailability(availabilityData);
+      // Normalize time formats in availability data
+      const normalizedAvailability = availabilityData.map((slot) => ({
+        ...slot,
+        start_time: normalizeTime(slot.start_time),
+        end_time: normalizeTime(slot.end_time),
+      }));
+      
+      setAvailability(normalizedAvailability);
       setClasses(classesResponse.classes || []);
       setTrials(trialsResponse.trials || []);
     } catch (err: any) {
-      setError(err.message || getText("teacher.failedToLoadData"));
+      const { message, details } = extractErrors(err);
+      setError(message);
+      setErrorDetails(details);
+      setIsErrorModalOpen(true);
     } finally {
       setIsLoading(false);
     }
@@ -236,6 +465,127 @@ export default function TeacherAvailabilityPage() {
     );
   };
 
+  // Helper function to normalize time to HH:mm format for comparison
+  const normalizeTimeForComparison = (time: string): string => {
+    if (!time) return "";
+    // Extract HH:mm from various formats (HH:mm, HH:mm:ss, etc.)
+    const match = time.match(/(\d{2}):(\d{2})/);
+    if (match) {
+      return `${match[1]}:${match[2]}`;
+    }
+    return time;
+  };
+
+  // Get all time slots for a specific date from availability
+  const getTimeSlotsForDate = (date: Date) => {
+    const dateStr = date.toISOString().split("T")[0];
+    const dayOfWeek = date.getDay() === 0 ? 7 : date.getDay();
+    const slots: Array<{
+      startTime: string;
+      endTime: string;
+      type: 'free' | 'trial' | 'booked';
+      data?: ClassInstance | TrialClass;
+    }> = [];
+
+    // Get availability slots for this day of week
+    const dayAvailability = availability.filter(
+      (avail) => avail.day_of_week === dayOfWeek && avail.is_available
+    );
+
+    dayAvailability.forEach((avail) => {
+      const availStart = normalizeTimeForComparison(avail.start_time);
+      const availEnd = normalizeTimeForComparison(avail.end_time);
+
+      // Check if there's a class at this time
+      const classAtTime = classes.find(
+        (cls) => {
+          if (cls.class_date !== dateStr) return false;
+          const clsStart = normalizeTimeForComparison(cls.start_time);
+          const clsEnd = normalizeTimeForComparison(cls.end_time);
+          return clsStart === availStart && clsEnd === availEnd;
+        }
+      );
+
+      // Check if there's a trial at this time
+      const trialAtTime = trials.find(
+        (trial) => {
+          if (trial.trial_date !== dateStr) return false;
+          const trialStart = normalizeTimeForComparison(trial.start_time);
+          const trialEnd = normalizeTimeForComparison(trial.end_time);
+          return trialStart === availStart && trialEnd === availEnd;
+        }
+      );
+
+      if (classAtTime) {
+        slots.push({
+          startTime: avail.start_time,
+          endTime: avail.end_time,
+          type: 'booked',
+          data: classAtTime,
+        });
+      } else if (trialAtTime) {
+        slots.push({
+          startTime: avail.start_time,
+          endTime: avail.end_time,
+          type: 'trial',
+          data: trialAtTime,
+        });
+      } else {
+        slots.push({
+          startTime: avail.start_time,
+          endTime: avail.end_time,
+          type: 'free',
+        });
+      }
+    });
+
+    return slots.sort((a, b) => {
+      const aStart = normalizeTimeForComparison(a.startTime);
+      const bStart = normalizeTimeForComparison(b.startTime);
+      return aStart.localeCompare(bStart);
+    });
+  };
+
+  // Get color for event card based on type
+  const getEventCardColor = (type: 'free' | 'trial' | 'booked') => {
+    switch (type) {
+      case 'free':
+        return 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30';
+      case 'trial':
+        return 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 hover:bg-yellow-100 dark:hover:bg-yellow-900/30';
+      case 'booked':
+        return 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30';
+      default:
+        return 'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-800';
+    }
+  };
+
+  // Get text color for event card
+  const getEventTextColor = (type: 'free' | 'trial' | 'booked') => {
+    switch (type) {
+      case 'free':
+        return 'text-green-800 dark:text-green-200';
+      case 'trial':
+        return 'text-yellow-800 dark:text-yellow-200';
+      case 'booked':
+        return 'text-blue-800 dark:text-blue-200';
+      default:
+        return 'text-gray-800 dark:text-gray-200';
+    }
+  };
+
+  // Handle clicking on an event card
+  const handleEventCardClick = (event: {
+    type: 'free' | 'trial' | 'booked';
+    date: string;
+    startTime: string;
+    endTime: string;
+    data?: ClassInstance | TrialClass;
+  }) => {
+    setSelectedDateEvent(event);
+    setIsDateEventModalOpen(true);
+  };
+
   const isTimeInAvailability = (dayOfWeek: number, time: string) => {
     return availability.some(
       (avail) =>
@@ -279,7 +629,10 @@ export default function TeacherAvailabilityPage() {
       setIsEventModalOpen(false);
       setSelectedEvent(null);
     } catch (err: any) {
-      setError(err.message || getText("teacher.failedToUpdateStatus"));
+      const { message, details } = extractErrors(err);
+      setError(message);
+      setErrorDetails(details);
+      setIsErrorModalOpen(true);
     } finally {
       setIsSaving(false);
     }
@@ -298,7 +651,10 @@ export default function TeacherAvailabilityPage() {
       setSelectedEvent(null);
       setApologyReason("");
     } catch (err: any) {
-      setError(err.message || getText("teacher.failedToSendApology"));
+      const { message, details } = extractErrors(err);
+      setError(message);
+      setErrorDetails(details);
+      setIsErrorModalOpen(true);
     } finally {
       setIsSaving(false);
     }
@@ -326,9 +682,15 @@ export default function TeacherAvailabilityPage() {
   };
 
   const updateAvailabilitySlot = (id: number, field: string, value: any) => {
+    // Normalize time values to HH:mm format
+    let normalizedValue = value;
+    if ((field === "start_time" || field === "end_time") && value) {
+      normalizedValue = normalizeTime(value);
+    }
+    
     setAvailability(
       availability.map((slot) =>
-        slot.id === id ? { ...slot, [field]: value } : slot
+        slot.id === id ? { ...slot, [field]: normalizedValue } : slot
       )
     );
   };
@@ -337,18 +699,22 @@ export default function TeacherAvailabilityPage() {
     try {
       setIsSaving(true);
       setError(null);
+      setErrorDetails(null);
       await TeacherService.updateAvailability(
         availability.map((slot) => ({
           day_of_week: slot.day_of_week,
-          start_time: slot.start_time,
-          end_time: slot.end_time,
+          start_time: normalizeTime(slot.start_time),
+          end_time: normalizeTime(slot.end_time),
           timezone: slot.timezone,
           is_available: slot.is_available,
         }))
       );
       await fetchData();
     } catch (err: any) {
-      setError(err.message || getText("teacher.failedToUpdateAvailability"));
+      const { message, details } = extractErrors(err);
+      setError(message);
+      setErrorDetails(details);
+      setIsErrorModalOpen(true);
     } finally {
       setIsSaving(false);
     }
@@ -383,11 +749,6 @@ export default function TeacherAvailabilityPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 px-4 py-3 rounded-lg text-right" style={{ textAlign: 'right' }}>
-          <p className="font-medium" style={{ textAlign: 'right' }}>{error}</p>
-        </div>
-      )}
 
       {/* Availability Settings - Collapsible */}
       <Card className="text-right rtl" dir="rtl" style={{ textAlign: 'right', direction: 'rtl' }}>
@@ -580,7 +941,7 @@ export default function TeacherAvailabilityPage() {
         </CardContent>
       </Card>
 
-      {/* Week Navigation */}
+      {/* Week Calendar with Event Cards */}
       <Card className="text-right" style={{ textAlign: 'right' }}>
         <CardHeader className="text-right" style={{ textAlign: 'right' }}>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 flex-row-reverse">
@@ -589,7 +950,6 @@ export default function TeacherAvailabilityPage() {
               <span className="text-base sm:text-lg" style={{ textAlign: 'right' }}>{getText("teacher.weekView")}</span>
             </CardTitle>
             <div className="flex items-center gap-1 sm:gap-2 flex-row-reverse w-full sm:w-auto justify-between sm:justify-end">
-              {/* Previous week button - shows right arrow in RTL (goes to earlier week) */}
               <Button
                 variant="outline"
                 size="sm"
@@ -598,7 +958,6 @@ export default function TeacherAvailabilityPage() {
               >
                 <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
-              {/* Week date range - right aligned */}
               <span className="text-xs sm:text-sm font-medium text-right px-1 sm:px-2 flex-1 sm:flex-none sm:min-w-[200px]" style={{ textAlign: 'right', direction: 'rtl' }}>
                 {weekDates[0].toLocaleDateString("ar-SA", { 
                   month: "short", 
@@ -608,7 +967,6 @@ export default function TeacherAvailabilityPage() {
                   day: "numeric" 
                 })}
               </span>
-              {/* Next week button - shows left arrow in RTL (goes to later week) */}
               <Button
                 variant="outline"
                 size="sm"
@@ -628,90 +986,104 @@ export default function TeacherAvailabilityPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="text-right p-2 sm:p-6" style={{ textAlign: 'right' }}>
-          <div className="overflow-x-auto -mx-2 sm:mx-0" dir="rtl" style={{ direction: 'rtl' }}>
-            <div className="min-w-[800px] sm:min-w-full">
-              <div className="grid grid-cols-8 gap-0.5 sm:gap-1 md:gap-2" style={{ direction: 'rtl' }}>
-                {/* Time column - First in code, appears on right in RTL */}
-                <div className="sticky right-0 bg-white dark:bg-gray-800 z-10 border-l border-r-0 text-right min-w-[60px] sm:min-w-[80px]" style={{ textAlign: 'right', direction: 'rtl', paddingRight: '4px', paddingLeft: '2px', paddingTop: '4px', paddingBottom: '4px' }}>
-                  {/* Time column header */}
-                  <div className="h-10 sm:h-12 border-b p-1 sm:p-2 bg-gray-50 dark:bg-gray-900 text-right flex items-center justify-end" style={{ textAlign: 'right', direction: 'rtl' }}>
-                    <div className="font-semibold text-xs sm:text-sm text-right" style={{ textAlign: 'right' }}>
-                      {getText("teacher.time")}
-                    </div>
-                  </div>
-                  {TIME_SLOTS.map((time) => (
-                    <div
-                      key={time}
-                      className="h-12 sm:h-16 border-b text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 flex items-center justify-end text-right px-1"
-                      style={{ textAlign: 'right', justifyContent: 'flex-end', direction: 'rtl' }}
-                    >
-                      {time}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Days - rendered after time column, appear left of time column in RTL */}
-                {weekDates.map((date, idx) => {
-                  const dayOfWeek = date.getDay() === 0 ? 7 : date.getDay();
-                  const dayInfo = DAYS.find((d) => d.value === dayOfWeek);
-                  const dayEvents = getEventsForDate(date);
-                  
-                  return (
-                    <div key={idx} className="border-l border-r-0 first:border-l-0 text-right min-w-[90px] sm:min-w-[110px]" style={{ textAlign: 'right', direction: 'rtl' }}>
-                      {/* Day header */}
-                      <div className="h-10 sm:h-12 border-b p-1 sm:p-2 bg-gray-50 dark:bg-gray-900 text-right" style={{ textAlign: 'right', direction: 'rtl' }}>
-                        <div className="font-semibold text-xs sm:text-sm text-right" style={{ textAlign: 'right' }}>
-                          {dayInfo?.labelAr}
-                        </div>
-                        <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 text-right" style={{ textAlign: 'right' }}>
-                          {date.toLocaleDateString("ar-SA", { 
-                            month: "short", 
-                            day: "numeric" 
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Time slots */}
-                      <div className="relative">
-                        {TIME_SLOTS.map((time) => {
-                          const status = getTimeSlotStatus(dayOfWeek, date, time);
-                          const eventAtTime = dayEvents.find(
-                            (e) => time >= e.startTime && time < e.endTime
-                          );
-
-                          return (
-                            <div
-                              key={time}
-                              className={cn(
-                                "h-12 sm:h-16 border-b relative",
-                                status === "available" && "bg-green-50 dark:bg-green-900/20",
-                                status === "booked" && "bg-blue-50 dark:bg-blue-900/20",
-                                eventAtTime && "cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-800/30"
-                              )}
-                              onClick={() => eventAtTime && handleEventClick(eventAtTime)}
-                            >
-                              {eventAtTime && (
-                                <div className="absolute inset-0 p-0.5 sm:p-1 text-[9px] sm:text-xs text-right">
-                                  <div className={cn(
-                                    "rounded px-0.5 sm:px-1 py-0.5 truncate text-right",
-                                    eventAtTime.type === "class" 
-                                      ? "bg-blue-500 text-white" 
-                                      : "bg-yellow-500 text-white"
-                                  )}>
-                                    {eventAtTime.studentName}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          );
+        <CardContent className="text-right p-4 sm:p-6" style={{ textAlign: 'right' }}>
+          <div className="space-y-4" style={{ direction: 'rtl' }}>
+            {weekDates.map((date) => {
+              const dateStr = date.toISOString().split("T")[0];
+              const dayOfWeek = date.getDay() === 0 ? 7 : date.getDay();
+              const dayInfo = DAYS.find((d) => d.value === dayOfWeek);
+              const timeSlots = getTimeSlotsForDate(date);
+              
+              return (
+                <div key={dateStr} className="border-2 border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
+                  <div className="flex items-center justify-between mb-4 flex-row-reverse">
+                    <div className="flex items-center gap-2 flex-row-reverse">
+                      <Calendar className="h-4 w-4 text-gray-500" />
+                      <h3 className="font-semibold text-lg text-gray-900 dark:text-white">
+                        {dayInfo?.labelAr} - {date.toLocaleDateString("ar-SA", { 
+                          month: "long", 
+                          day: "numeric",
+                          year: "numeric"
                         })}
-                      </div>
+                      </h3>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {timeSlots.length} {timeSlots.length === 1 ? 'وقت متاح' : 'أوقات متاحة'}
+                    </span>
+                  </div>
+                  
+                  {timeSlots.length === 0 ? (
+                    <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+                      لا توجد أوقات متاحة في هذا اليوم
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {timeSlots.map((slot, index) => (
+                        <div
+                          key={index}
+                          onClick={() => handleEventCardClick({
+                            type: slot.type,
+                            date: dateStr,
+                            startTime: slot.startTime,
+                            endTime: slot.endTime,
+                            data: slot.data,
+                          })}
+                          className={cn(
+                            "border-2 rounded-lg p-4 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md",
+                            getEventCardColor(slot.type)
+                          )}
+                        >
+                          <div className="flex items-center justify-between mb-2 flex-row-reverse">
+                            <div className={cn("font-semibold text-sm", getEventTextColor(slot.type))}>
+                              {slot.type === 'free' && '⏰ متاح'}
+                              {slot.type === 'trial' && '🎯 حصة تجريبية'}
+                              {slot.type === 'booked' && '📚 محجوز'}
+                            </div>
+                            <div className={cn("text-xs font-medium", getEventTextColor(slot.type))}>
+                              {slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)}
+                            </div>
+                          </div>
+                          
+                          {slot.type === 'free' && (
+                            <p className="text-xs text-gray-600 dark:text-gray-400 text-right">
+                              انقر لعرض التفاصيل
+                            </p>
+                          )}
+                          
+                          {slot.type === 'trial' && slot.data && (
+                            <div className="mt-2 space-y-1">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white text-right">
+                                {((slot.data as TrialClass).student?.full_name) || 'طالب'}
+                              </p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 text-right">
+                                {((slot.data as TrialClass).course?.name) || 'دورة'}
+                              </p>
+                            </div>
+                          )}
+                          
+                          {slot.type === 'booked' && slot.data && (
+                            <div className="mt-2 space-y-1">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white text-right">
+                                {((slot.data as ClassInstance).student?.full_name) || 'طالب'}
+                              </p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 text-right">
+                                {((slot.data as ClassInstance).course?.name) || 'دورة'}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-500 text-right">
+                                الحالة: {((slot.data as ClassInstance).status === 'pending' ? 'قيد الانتظار' : 
+                                         (slot.data as ClassInstance).status === 'attended' ? 'حضر' :
+                                         (slot.data as ClassInstance).status === 'absent_student' ? 'غائب' : 
+                                         (slot.data as ClassInstance).status)}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -778,6 +1150,230 @@ export default function TeacherAvailabilityPage() {
             )}
             <Button onClick={handleSaveStatus} disabled={isSaving}>
               {getText("teacher.updateStatus")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Date Event Details Modal */}
+      <Dialog open={isDateEventModalOpen} onOpenChange={setIsDateEventModalOpen}>
+        <DialogContent className="rtl max-w-2xl" dir="rtl" style={{ textAlign: 'right', direction: 'rtl' }}>
+          <DialogHeader className="text-right" style={{ textAlign: 'right' }}>
+            <DialogTitle className="text-right" style={{ textAlign: 'right' }}>
+              {selectedDateEvent?.type === 'free' && '⏰ وقت متاح'}
+              {selectedDateEvent?.type === 'trial' && '🎯 حصة تجريبية'}
+              {selectedDateEvent?.type === 'booked' && '📚 حصة محجوزة'}
+            </DialogTitle>
+            <DialogDescription className="text-right" style={{ textAlign: 'right' }}>
+              {selectedDateEvent && (
+                <>
+                  {new Date(selectedDateEvent.date).toLocaleDateString("ar-SA", { 
+                    weekday: "long",
+                    month: "long", 
+                    day: "numeric",
+                    year: "numeric"
+                  })}
+                  <br />
+                  الوقت: {selectedDateEvent.startTime.substring(0, 5)} - {selectedDateEvent.endTime.substring(0, 5)}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 text-right" style={{ textAlign: 'right', direction: 'rtl' }}>
+            {selectedDateEvent?.type === 'free' && (
+              <div className="space-y-3">
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                  <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">معلومات الوقت المتاح</h4>
+                  <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                    <p><strong>التاريخ:</strong> {selectedDateEvent && new Date(selectedDateEvent.date).toLocaleDateString("ar-SA", { 
+                      weekday: "long",
+                      month: "long", 
+                      day: "numeric",
+                      year: "numeric"
+                    })}</p>
+                    <p><strong>وقت البداية:</strong> {selectedDateEvent?.startTime.substring(0, 5)}</p>
+                    <p><strong>وقت النهاية:</strong> {selectedDateEvent?.endTime.substring(0, 5)}</p>
+                    <p className="text-green-700 dark:text-green-300 font-medium mt-3">
+                      ✓ هذا الوقت متاح ويمكن حجزه
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {selectedDateEvent?.type === 'trial' && selectedDateEvent.data && (
+              <div className="space-y-3">
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                  <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-3">معلومات الحصة التجريبية</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-gray-600 dark:text-gray-400 mb-1">الطالب:</p>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {((selectedDateEvent.data as TrialClass).student?.full_name) || 'غير محدد'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600 dark:text-gray-400 mb-1">الدورة:</p>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {((selectedDateEvent.data as TrialClass).course?.name) || 'غير محدد'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600 dark:text-gray-400 mb-1">الحالة:</p>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {((selectedDateEvent.data as TrialClass).status === 'pending' ? 'قيد الانتظار' :
+                            (selectedDateEvent.data as TrialClass).status === 'pending_review' ? 'قيد المراجعة' :
+                            (selectedDateEvent.data as TrialClass).status === 'completed' ? 'مكتمل' :
+                            (selectedDateEvent.data as TrialClass).status === 'no_show' ? 'لم يحضر' :
+                            (selectedDateEvent.data as TrialClass).status === 'converted' ? 'تم التحويل' :
+                            (selectedDateEvent.data as TrialClass).status)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600 dark:text-gray-400 mb-1">التاريخ:</p>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {selectedDateEvent && new Date(selectedDateEvent.date).toLocaleDateString("ar-SA", { 
+                            month: "long", 
+                            day: "numeric",
+                            year: "numeric"
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    {((selectedDateEvent.data as TrialClass).notes) && (
+                      <div className="mt-3 pt-3 border-t border-yellow-300 dark:border-yellow-700">
+                        <p className="text-gray-600 dark:text-gray-400 mb-1">الملاحظات:</p>
+                        <p className="text-gray-900 dark:text-white">{((selectedDateEvent.data as TrialClass).notes)}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {selectedDateEvent?.type === 'booked' && selectedDateEvent.data && (
+              <div className="space-y-3">
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-3">معلومات الحصة المحجوزة</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-gray-600 dark:text-gray-400 mb-1">الطالب:</p>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {((selectedDateEvent.data as ClassInstance).student?.full_name) || 'غير محدد'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600 dark:text-gray-400 mb-1">الدورة:</p>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {((selectedDateEvent.data as ClassInstance).course?.name) || 'غير محدد'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600 dark:text-gray-400 mb-1">الحالة:</p>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {((selectedDateEvent.data as ClassInstance).status === 'pending' ? 'قيد الانتظار' :
+                            (selectedDateEvent.data as ClassInstance).status === 'attended' ? 'حضر' :
+                            (selectedDateEvent.data as ClassInstance).status === 'absent_student' ? 'غائب الطالب' :
+                            (selectedDateEvent.data as ClassInstance).status === 'cancelled_by_student' ? 'ملغي من الطالب' :
+                            (selectedDateEvent.data as ClassInstance).status === 'cancelled_by_teacher' ? 'ملغي من المعلم' :
+                            (selectedDateEvent.data as ClassInstance).status)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600 dark:text-gray-400 mb-1">المدة:</p>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {((selectedDateEvent.data as ClassInstance).duration || 0)} دقيقة
+                        </p>
+                      </div>
+                    </div>
+                    {((selectedDateEvent.data as ClassInstance).notes) && (
+                      <div className="mt-3 pt-3 border-t border-blue-300 dark:border-blue-700">
+                        <p className="text-gray-600 dark:text-gray-400 mb-1">الملاحظات:</p>
+                        <p className="text-gray-900 dark:text-white">{((selectedDateEvent.data as ClassInstance).notes)}</p>
+                      </div>
+                    )}
+                    {((selectedDateEvent.data as ClassInstance).class_report) && (
+                      <div className="mt-3 pt-3 border-t border-blue-300 dark:border-blue-700">
+                        <p className="text-gray-600 dark:text-gray-400 mb-1">تقرير الحصة:</p>
+                        <p className="text-gray-900 dark:text-white">{((selectedDateEvent.data as ClassInstance).class_report)}</p>
+                      </div>
+                    )}
+                    {((selectedDateEvent.data as ClassInstance).student_evaluation) && (
+                      <div className="mt-3 pt-3 border-t border-blue-300 dark:border-blue-700">
+                        <p className="text-gray-600 dark:text-gray-400 mb-1">تقييم الطالب:</p>
+                        <p className="text-gray-900 dark:text-white">{((selectedDateEvent.data as ClassInstance).student_evaluation)}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter className="flex-row-reverse" style={{ direction: 'rtl', justifyContent: 'flex-start' }}>
+            <Button
+              onClick={() => {
+                setIsDateEventModalOpen(false);
+                setSelectedDateEvent(null);
+              }}
+              variant="outline"
+            >
+              إغلاق
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Error Modal */}
+      <Dialog open={isErrorModalOpen} onOpenChange={setIsErrorModalOpen}>
+        <DialogContent className="rtl" dir="rtl" style={{ textAlign: 'right', direction: 'rtl' }}>
+          <DialogHeader className="text-right" style={{ textAlign: 'right' }}>
+            <DialogTitle className="flex items-center gap-2 text-right" style={{ textAlign: 'right' }}>
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              <span style={{ textAlign: 'right' }}>خطأ</span>
+            </DialogTitle>
+            <DialogDescription className="text-right" style={{ textAlign: 'right' }}>
+              {error || "حدث خطأ ما"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {errorDetails && Object.keys(errorDetails).length > 0 && (
+            <div className="space-y-3 text-right" style={{ textAlign: 'right', direction: 'rtl' }}>
+              <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 text-right" style={{ textAlign: 'right' }}>
+                تفاصيل الأخطاء:
+              </div>
+              <div className="space-y-2 max-h-[300px] overflow-y-auto" style={{ direction: 'rtl' }}>
+                {Object.entries(errorDetails).map(([field, errors]) => (
+                  <div key={field} className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-right" style={{ textAlign: 'right' }}>
+                    <div className="font-medium text-red-800 dark:text-red-200 text-sm mb-1" style={{ textAlign: 'right' }}>
+                      {formatFieldName(field)}:
+                    </div>
+                    <ul className="list-disc list-inside space-y-1 text-right" style={{ textAlign: 'right', direction: 'rtl' }}>
+                      {errors.map((errorMsg, index) => (
+                        <li key={index} className="text-sm text-red-700 dark:text-red-300" style={{ textAlign: 'right' }}>
+                          {errorMsg}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter className="flex-row-reverse" style={{ direction: 'rtl', justifyContent: 'flex-start' }}>
+            <Button
+              onClick={() => {
+                setIsErrorModalOpen(false);
+                setError(null);
+                setErrorDetails(null);
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              إغلاق
             </Button>
           </DialogFooter>
         </DialogContent>
