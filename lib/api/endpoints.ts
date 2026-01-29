@@ -28,6 +28,7 @@ export const API_ENDPOINTS = {
     TEACHER_WEEKLY_SCHEDULE: (id: number) => `/admin/teachers/${id}/weekly-schedule`,
     TEACHER_CREDENTIALS: (id: number) => `/admin/teachers/${id}/credentials`,
     TEACHER_SEND_CREDENTIALS_WHATSAPP: (id: number) => `/admin/teachers/${id}/send-credentials-whatsapp`,
+    TEACHERS_AVAILABLE: `/admin/teachers/available`,
     
     // Courses
     COURSES: `/admin/courses`,

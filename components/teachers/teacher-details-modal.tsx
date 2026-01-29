@@ -99,7 +99,7 @@ export function TeacherDetailsModal({
       const data = await TeacherService.getTeacherMonthlyStats(teacher.id);
       setStats(data);
     } catch (err: any) {
-      setError(err.message || "Failed to load teacher statistics");
+      setError(err.message || t("teachers.failedToLoadStatistics") || "Failed to load teacher statistics");
     } finally {
       setIsLoading(false);
     }
@@ -144,7 +144,13 @@ export function TeacherDetailsModal({
   const formatTime = (time: string) => {
     // Handle both "HH:mm:ss" and "HH:mm" formats
     const timeStr = time.split(':').slice(0, 2).join(':');
-    return timeStr;
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    
+    // Convert to 12-hour format
+    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    const ampm = hours < 12 ? t("common.am") || "AM" : t("common.pm") || "PM";
+    
+    return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
   };
 
   const groupAvailabilityByDay = () => {
@@ -165,7 +171,7 @@ export function TeacherDetailsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className={cn("sm:max-w-[900px] max-h-[90vh] overflow-y-auto", direction === "rtl" && "rtl")}>
         <DialogHeader>
           <DialogTitle className={cn("text-left rtl:text-right")}>
             {t("teachers.teacherDetails") || "Teacher Details"} - {teacher.user?.name || "N/A"}
@@ -182,7 +188,10 @@ export function TeacherDetailsModal({
         )}
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
+          <div className={cn(
+            "bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm",
+            direction === "rtl" && "text-right"
+          )}>
             {error}
           </div>
         )}
@@ -332,7 +341,10 @@ export function TeacherDetailsModal({
                                 <Badge
                                   key={idx}
                                   variant="outline"
-                                  className="bg-blue-50 text-blue-700 border-blue-200 px-3 py-1"
+                                  className={cn(
+                                    "bg-blue-50 text-blue-700 border-blue-200 px-3 py-1",
+                                    direction === "rtl" && "flex-row-reverse"
+                                  )}
                                 >
                                   <Clock className={cn("h-3 w-3", direction === "rtl" ? "ml-1" : "mr-1")} />
                                   {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
@@ -349,7 +361,10 @@ export function TeacherDetailsModal({
                       })}
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className={cn(
+                      "text-center py-8 text-gray-500",
+                      direction === "rtl" && "text-right"
+                    )}>
                       {t("teachers.noAvailabilitySet") || "No availability set for this teacher"}
                     </div>
                   )}

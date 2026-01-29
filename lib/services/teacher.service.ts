@@ -475,4 +475,122 @@ export class TeacherService {
 
     throw new Error("Failed to fetch teacher credentials");
   }
+
+  /**
+   * Get teacher monthly statistics and assigned students (Admin)
+   */
+  static async getTeacherMonthlyStats(
+    id: number,
+    month?: number,
+    year?: number
+  ): Promise<{
+    teacher: {
+      id: number;
+      name: string;
+      email: string;
+      hourly_rate: number;
+      currency: string;
+    };
+    month: number;
+    year: number;
+    stats: {
+      total_classes: number;
+      attended_classes: number;
+      total_hours: number;
+      salary: number;
+    };
+    students: Array<{
+      id: number;
+      full_name: string;
+      email?: string;
+      whatsapp?: string;
+      status: string;
+      country?: string;
+      currency?: string;
+    }>;
+    availability?: Array<{
+      id: number;
+      day_of_week: number;
+      start_time: string;
+      end_time: string;
+      timezone: string;
+      is_available: boolean;
+    }>;
+  }> {
+    const params: any = {};
+    if (month) params.month = month;
+    if (year) params.year = year;
+
+    const response = await apiClient.get<{
+      teacher: {
+        id: number;
+        name: string;
+        email: string;
+        hourly_rate: number;
+        currency: string;
+      };
+      month: number;
+      year: number;
+      stats: {
+        total_classes: number;
+        attended_classes: number;
+        total_hours: number;
+        salary: number;
+      };
+      students: Array<{
+        id: number;
+        full_name: string;
+        email?: string;
+        whatsapp?: string;
+        status: string;
+        country?: string;
+        currency?: string;
+      }>;
+      availability?: Array<{
+        id: number;
+        day_of_week: number;
+        start_time: string;
+        end_time: string;
+        timezone: string;
+        is_available: boolean;
+      }>;
+    }>(API_ENDPOINTS.ADMIN.TEACHER_MONTHLY_STATS(id), { params });
+
+    if (response.status === "success" && response.data) {
+      return response.data;
+    }
+
+    throw new Error("Failed to fetch teacher monthly statistics");
+  }
+
+  /**
+   * Find available teachers for a specific date and time range (Admin)
+   */
+  static async findAvailableTeachers(params: {
+    date: string;
+    start_time: string;
+    end_time: string;
+  }): Promise<Array<{
+    id: number;
+    name: string;
+    email: string;
+    hourly_rate: number;
+    currency: string;
+    status: string;
+  }>> {
+    const response = await apiClient.get<Array<{
+      id: number;
+      name: string;
+      email: string;
+      hourly_rate: number;
+      currency: string;
+      status: string;
+    }>>(API_ENDPOINTS.ADMIN.TEACHERS_AVAILABLE, { params });
+
+    if (response.status === "success" && response.data) {
+      return response.data;
+    }
+
+    throw new Error("Failed to find available teachers");
+  }
 }

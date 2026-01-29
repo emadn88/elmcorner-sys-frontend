@@ -596,7 +596,13 @@
     "teacherNotFound": "لم يتم العثور على المعلم",
     "backToTeachers": "العودة إلى المعلمين",
     "back": "رجوع",
-    "teacher": "المعلم"
+    "teacher": "المعلم",
+    "teacherDetails": "تفاصيل المعلم",
+    "monthlyStatistics": "الإحصائيات الشهرية",
+    "details": "التفاصيل",
+    "weeklyAvailability": "التوفر الأسبوعي",
+    "noAvailabilitySet": "لم يتم تعيين التوفر لهذا المعلم",
+    "failedToLoadStatistics": "فشل تحميل إحصائيات المعلم"
   },
   "courses": {
     "pageTitle": "الدورات",
@@ -968,7 +974,13 @@
     "addTrialDescription": "إنشاء حصة تجريبية جديدة للوقت المحدد",
     "availability": "التوفر",
     "classes": "الحصص",
-    "trials": "الحصص التجريبية"
+    "trials": "الحصص التجريبية",
+    "findAvailableTeachers": "البحث عن المعلمين المتاحين",
+    "startTime": "وقت البداية",
+    "endTime": "وقت النهاية",
+    "search": "بحث",
+    "availableTeachers": "المعلمون المتاحون",
+    "noAvailableTeachers": "لم يتم العثور على معلمين متاحين للوقت المحدد"
   },
   "leads": {
     "pageTitle": "العملاء المحتملين",
@@ -1115,8 +1127,17 @@
     "october": "أكتوبر",
     "november": "نوفمبر",
     "december": "ديسمبر",
+    "sunday": "الأحد",
+    "monday": "الاثنين",
+    "tuesday": "الثلاثاء",
+    "wednesday": "الأربعاء",
+    "thursday": "الخميس",
+    "friday": "الجمعة",
+    "saturday": "السبت",
     "hours": "ساعات",
-    "user": "مستخدم"
+    "user": "مستخدم",
+    "am": "ص",
+    "pm": "م"
   },
   "salaries": {
     "title": "رواتب المعلمين",

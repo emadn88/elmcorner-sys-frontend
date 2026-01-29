@@ -775,7 +775,13 @@
     "addTrialDescription": "Create a new trial class for the selected time slot",
     "availability": "Availability",
     "classes": "Classes",
-    "trials": "Trials"
+    "trials": "Trials",
+    "findAvailableTeachers": "Find Available Teachers",
+    "startTime": "Start Time",
+    "endTime": "End Time",
+    "search": "Search",
+    "availableTeachers": "Available Teachers",
+    "noAvailableTeachers": "No available teachers found for the selected time slot"
   },
   "leads": {
     "pageTitle": "Leads",
@@ -933,7 +939,9 @@
     "thursday": "Thursday",
     "friday": "Friday",
     "saturday": "Saturday",
-    "hours": "hours"
+    "hours": "hours",
+    "am": "AM",
+    "pm": "PM"
   },
   "families": {
     "pageTitle": "Families",
@@ -1066,7 +1074,8 @@
     "monthlyStatistics": "Monthly Statistics",
     "details": "Details",
     "weeklyAvailability": "Weekly Availability",
-    "noAvailabilitySet": "No availability set for this teacher"
+    "noAvailabilitySet": "No availability set for this teacher",
+    "failedToLoadStatistics": "Failed to load teacher statistics"
   },
   "teacher": {
     "dashboard": "Dashboard",

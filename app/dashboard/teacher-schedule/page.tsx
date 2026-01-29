@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Calendar, List, Search, User } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, List, Search, User, Clock, DollarSign, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -21,8 +21,19 @@ import { Teacher } from "@/types/teachers";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, parseISO } from "date-fns";
 import { WeeklyCalendarView } from "@/components/teacher-schedule/weekly-calendar-view";
 import { WeeklyListView } from "@/components/teacher-schedule/weekly-list-view";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 type ViewMode = "calendar" | "list";
+
+interface AvailableTeacher {
+  id: number;
+  name: string;
+  email: string;
+  hourly_rate: number;
+  currency: string;
+  status: string;
+}
 
 export default function TeacherSchedulePage() {
   const { t, direction } = useLanguage();
@@ -36,6 +47,14 @@ export default function TeacherSchedulePage() {
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [teacherSearch, setTeacherSearch] = useState("");
   const [showTeacherDropdown, setShowTeacherDropdown] = useState(false);
+  
+  // Available teachers search
+  const [searchDate, setSearchDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [searchStartTime, setSearchStartTime] = useState("09:00");
+  const [searchEndTime, setSearchEndTime] = useState("10:00");
+  const [availableTeachers, setAvailableTeachers] = useState<AvailableTeacher[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showAvailableTeachers, setShowAvailableTeachers] = useState(false);
 
   // Fetch teachers
   useEffect(() => {
@@ -110,6 +129,35 @@ export default function TeacherSchedulePage() {
     return name.includes(searchLower) || email.includes(searchLower);
   });
 
+  const handleSearchAvailableTeachers = async () => {
+    if (!searchDate || !searchStartTime || !searchEndTime) {
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      const results = await TeacherService.findAvailableTeachers({
+        date: searchDate,
+        start_time: searchStartTime,
+        end_time: searchEndTime,
+      });
+      setAvailableTeachers(results);
+      setShowAvailableTeachers(true);
+    } catch (err) {
+      console.error("Failed to search available teachers:", err);
+      setAvailableTeachers([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const formatTime12Hour = (time: string) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    const ampm = hours < 12 ? t("common.am") || "AM" : t("common.pm") || "PM";
+    return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+  };
+
   const weekEnd = endOfWeek(weekStart, { weekStartsOn: 0 });
   const weekRange = `${format(weekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`;
 
@@ -126,6 +174,141 @@ export default function TeacherSchedulePage() {
           </p>
         </div>
       </div>
+
+      {/* Find Available Teachers Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className={cn(direction === "rtl" && "text-right")}>
+            {t("schedule.findAvailableTeachers") || "Find Available Teachers"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className={cn(
+            "flex flex-col md:flex-row gap-4 items-end",
+            direction === "rtl" && "flex-row-reverse"
+          )}>
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+              <div>
+                <Label className={cn("mb-2 block", direction === "rtl" && "text-right")}>
+                  {t("common.dateFrom") || "Date"}
+                </Label>
+                <Input
+                  type="date"
+                  value={searchDate}
+                  onChange={(e) => setSearchDate(e.target.value)}
+                  className={cn(direction === "rtl" && "text-right")}
+                />
+              </div>
+              <div>
+                <Label className={cn("mb-2 block", direction === "rtl" && "text-right")}>
+                  {t("schedule.startTime") || "Start Time"}
+                </Label>
+                <Input
+                  type="time"
+                  value={searchStartTime}
+                  onChange={(e) => setSearchStartTime(e.target.value)}
+                  className={cn(direction === "rtl" && "text-right")}
+                />
+              </div>
+              <div>
+                <Label className={cn("mb-2 block", direction === "rtl" && "text-right")}>
+                  {t("schedule.endTime") || "End Time"}
+                </Label>
+                <Input
+                  type="time"
+                  value={searchEndTime}
+                  onChange={(e) => setSearchEndTime(e.target.value)}
+                  className={cn(direction === "rtl" && "text-right")}
+                />
+              </div>
+            </div>
+            <Button
+              onClick={handleSearchAvailableTeachers}
+              disabled={isSearching || !searchDate || !searchStartTime || !searchEndTime}
+              className={cn("gap-2", direction === "rtl" && "flex-row-reverse")}
+            >
+              {isSearching ? (
+                <>
+                  <LoadingSpinner />
+                  {t("common.loading") || "Loading..."}
+                </>
+              ) : (
+                <>
+                  <Search className="h-4 w-4" />
+                  {t("schedule.search") || "Search"}
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Available Teachers Results */}
+          {showAvailableTeachers && (
+            <div className="mt-6">
+              <h3 className={cn(
+                "text-lg font-semibold mb-4",
+                direction === "rtl" && "text-right"
+              )}>
+                {t("schedule.availableTeachers") || "Available Teachers"} ({availableTeachers.length})
+              </h3>
+              {availableTeachers.length === 0 ? (
+                <div className={cn(
+                  "text-center py-8 text-gray-500",
+                  direction === "rtl" && "text-right"
+                )}>
+                  {t("schedule.noAvailableTeachers") || "No available teachers found for the selected time slot"}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {availableTeachers.map((teacher) => (
+                    <Card key={teacher.id} className="border border-gray-200 hover:border-indigo-300 transition-colors">
+                      <CardContent className="p-4">
+                        <div className={cn(
+                          "flex items-start justify-between mb-3",
+                          direction === "rtl" && "flex-row-reverse"
+                        )}>
+                          <div className={cn("flex-1 min-w-0", direction === "rtl" && "text-right")}>
+                            <h4 className={cn(
+                              "font-semibold text-gray-900 mb-1",
+                              direction === "rtl" && "text-right"
+                            )}>
+                              {teacher.name}
+                            </h4>
+                            <div className={cn(
+                              "flex items-center gap-2 text-sm text-gray-600",
+                              direction === "rtl" && "flex-row-reverse"
+                            )}>
+                              <Mail className="h-3 w-3" />
+                              <span>{teacher.email}</span>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200">
+                            {t("teachers.active") || "Active"}
+                          </Badge>
+                        </div>
+                        <div className={cn(
+                          "flex items-center gap-2 text-sm text-gray-700",
+                          direction === "rtl" && "flex-row-reverse"
+                        )}>
+                          <DollarSign className="h-4 w-4" />
+                          <span>
+                            {teacher.hourly_rate} {teacher.currency} / {t("salaries.hours") || "hour"}
+                          </span>
+                        </div>
+                        <div className={cn(
+                          "mt-2 text-xs text-gray-500",
+                          direction === "rtl" && "text-right"
+                        )}>
+                          {formatTime12Hour(searchStartTime)} - {formatTime12Hour(searchEndTime)}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Controls */}
       <Card>
