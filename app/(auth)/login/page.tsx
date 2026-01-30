@@ -165,21 +165,21 @@ export default function LoginPage() {
               }}
             />
           </motion.div>
-          <h1 className="text-3xl font-bold text-white mb-2">
+          <h1 className="text-3xl font-bold text-white mb-2 text-center">
             {t("auth.welcomeBack")}
           </h1>
-          <p className="text-slate-400 text-sm">
+          <p className="text-slate-400 text-sm text-center">
             {t("auth.signInToContinue")}
           </p>
         </motion.div>
 
         {/* Login Card */}
         <Card className="backdrop-blur-xl bg-white/95 dark:bg-slate-900/95 border border-white/20 dark:border-slate-700/50 shadow-2xl shadow-black/20">
-          <CardHeader className="space-y-1 pb-6">
-            <CardTitle className="text-2xl font-bold text-center">
+          <CardHeader className="space-y-1 pb-6 text-center">
+            <CardTitle className="text-2xl font-bold text-center mx-auto">
               {t("auth.signIn")}
             </CardTitle>
-            <CardDescription className="text-center">
+            <CardDescription className="text-center mx-auto">
               {t("auth.enterCredentials") || "Enter your credentials to access your account"}
             </CardDescription>
           </CardHeader>
