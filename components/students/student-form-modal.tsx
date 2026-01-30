@@ -25,6 +25,7 @@ import { Family, Course } from "@/lib/api/types";
 import { CourseService } from "@/lib/services/course.service";
 import { useLanguage } from "@/contexts/language-context";
 import { COUNTRIES, getTimezoneForCountry, getCurrencyForCountry } from "@/lib/countries-timezones";
+import { TIMEZONES, searchTimezones, getTimezoneByIdentifier, TimezoneOption } from "@/lib/timezones";
 import { validateWhatsAppNumber, autoFormatPhoneNumber, ValidationResult } from "@/lib/whatsapp-validator";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, XCircle, AlertCircle, ExternalLink } from "lucide-react";
@@ -70,6 +71,10 @@ export function StudentFormModal({
   const [isCountrySearching, setIsCountrySearching] = useState(false);
   const [filteredCountries, setFilteredCountries] = useState<typeof COUNTRIES>([]);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [timezoneSearch, setTimezoneSearch] = useState("");
+  const [isTimezoneSearching, setIsTimezoneSearching] = useState(false);
+  const [filteredTimezones, setFilteredTimezones] = useState<TimezoneOption[]>([]);
+  const [showTimezoneDropdown, setShowTimezoneDropdown] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [whatsappError, setWhatsappError] = useState<string | null>(null);
   const [whatsappValidation, setWhatsappValidation] = useState<{
@@ -78,6 +83,7 @@ export function StudentFormModal({
     whatsappLink?: string;
   } | null>(null);
   const countryDropdownRef = useRef<HTMLDivElement>(null);
+  const timezoneDropdownRef = useRef<HTMLDivElement>(null);
   
   // Courses state
   const [courses, setCourses] = useState<Course[]>([]);
@@ -124,6 +130,16 @@ export function StudentFormModal({
     }
   }, [countrySearch, isCountrySearching]);
 
+  // Filter timezones based on search
+  useEffect(() => {
+    if (isTimezoneSearching && timezoneSearch) {
+      const filtered = searchTimezones(timezoneSearch);
+      setFilteredTimezones(filtered);
+    } else {
+      setFilteredTimezones(TIMEZONES);
+    }
+  }, [timezoneSearch, isTimezoneSearching]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -133,16 +149,22 @@ export function StudentFormModal({
       ) {
         setShowCountryDropdown(false);
       }
+      if (
+        timezoneDropdownRef.current &&
+        !timezoneDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowTimezoneDropdown(false);
+      }
     };
 
-    if (showCountryDropdown) {
+    if (showCountryDropdown || showTimezoneDropdown) {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showCountryDropdown]);
+  }, [showCountryDropdown, showTimezoneDropdown]);
 
   useEffect(() => {
     if (student) {
@@ -169,6 +191,10 @@ export function StudentFormModal({
       // Reset country search state - don't trigger dropdown on load
       setCountrySearch("");
       setIsCountrySearching(false);
+      // Set timezone display value but don't trigger dropdown
+      const currentTz = getTimezoneByIdentifier(student.timezone || "Africa/Cairo");
+      setTimezoneSearch(currentTz?.displayName || student.timezone || "");
+      setIsTimezoneSearching(false);
     } else {
       setFormData({
         family_id: "",
@@ -187,11 +213,15 @@ export function StudentFormModal({
       setIsFamilySearching(false);
       setCountrySearch("");
       setIsCountrySearching(false);
+      const defaultTz = getTimezoneByIdentifier("Africa/Cairo");
+      setTimezoneSearch(defaultTz?.displayName || "Africa/Cairo");
+      setIsTimezoneSearching(false);
     }
     setError(null);
     setWhatsappError(null);
     setWhatsappValidation(null);
     setShowCountryDropdown(false);
+    setShowTimezoneDropdown(false);
     setFamilies([]);
   }, [student, open]);
 
@@ -239,11 +269,9 @@ export function StudentFormModal({
     setFormData((prev) => {
       const updated = { ...prev, [field]: value };
       
-      // Auto-update timezone and currency when country changes
+      // Auto-update currency when country changes (but not timezone - user can select it separately)
       if (field === "country" && value) {
-        const timezone = getTimezoneForCountry(value) || "Africa/Cairo";
         const currency = getCurrencyForCountry(value);
-        updated.timezone = timezone;
         // Only auto-set currency if it's still the default or empty
         if (!prev.currency || prev.currency === "USD") {
           updated.currency = currency;
@@ -526,29 +554,94 @@ export function StudentFormModal({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="currency">{t("students.currency")}</Label>
-              <Input
-                id="currency"
+              <Select
                 value={formData.currency}
-                onChange={(e) => handleChange("currency", e.target.value.toUpperCase())}
-                placeholder="USD"
-                maxLength={3}
-              />
+                onValueChange={(value) => handleChange("currency", value)}
+              >
+                <SelectTrigger id="currency">
+                  <SelectValue placeholder={t("students.selectCurrency") || "Select currency"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="USD">{t("students.currencies.USD") || "USD - US Dollar"}</SelectItem>
+                  <SelectItem value="EUR">{t("students.currencies.EUR") || "EUR - Euro"}</SelectItem>
+                  <SelectItem value="GBP">{t("students.currencies.GBP") || "GBP - British Pound"}</SelectItem>
+                  <SelectItem value="SAR">{t("students.currencies.SAR") || "SAR - Saudi Riyal"}</SelectItem>
+                  <SelectItem value="AED">{t("students.currencies.AED") || "AED - UAE Dirham"}</SelectItem>
+                  <SelectItem value="CAD">{t("students.currencies.CAD") || "CAD - Canadian Dollar"}</SelectItem>
+                  <SelectItem value="AUD">{t("students.currencies.AUD") || "AUD - Australian Dollar"}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="timezone">{t("students.timezone")}</Label>
-              <Input
-                id="timezone"
-                value={formData.timezone}
-                placeholder="Africa/Cairo"
-                readOnly
-                className="bg-gray-50"
-              />
+              <div className="relative" ref={timezoneDropdownRef}>
+                <Input
+                  id="timezone"
+                  value={isTimezoneSearching ? timezoneSearch : (getTimezoneByIdentifier(formData.timezone)?.displayName || formData.timezone)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setIsTimezoneSearching(true);
+                    setTimezoneSearch(value);
+                    if (!value) {
+                      handleChange("timezone", "");
+                      setShowTimezoneDropdown(false);
+                    } else {
+                      setShowTimezoneDropdown(true);
+                    }
+                  }}
+                  onFocus={() => {
+                    // Show dropdown when user focuses on the input
+                    setShowTimezoneDropdown(true);
+                    if (!isTimezoneSearching) {
+                      const currentTz = getTimezoneByIdentifier(formData.timezone);
+                      setTimezoneSearch(currentTz?.displayName || formData.timezone || "");
+                      setIsTimezoneSearching(true);
+                    }
+                  }}
+                  onBlur={() => {
+                    // Reset search state when user leaves the field
+                    // Delay to allow dropdown click to register
+                    setTimeout(() => {
+                      if (!showTimezoneDropdown) {
+                        setIsTimezoneSearching(false);
+                        const currentTz = getTimezoneByIdentifier(formData.timezone);
+                        setTimezoneSearch(currentTz?.displayName || "");
+                      }
+                    }, 200);
+                  }}
+                  placeholder={t("students.timezonePlaceholder") || "Search timezone (e.g., Toronto, New York, Dubai)"}
+                />
+                {showTimezoneDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto text-left rtl:text-right">
+                    {(timezoneSearch ? filteredTimezones : TIMEZONES).map((tz) => (
+                      <div
+                        key={tz.identifier}
+                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-left rtl:text-right"
+                        onClick={() => {
+                          handleChange("timezone", tz.identifier);
+                          setTimezoneSearch("");
+                          setIsTimezoneSearching(false);
+                          setShowTimezoneDropdown(false);
+                        }}
+                      >
+                        <div className="font-medium">{tz.displayName}</div>
+                        <div className="text-xs text-gray-500">{tz.utcOffset} • {tz.identifier}</div>
+                      </div>
+                    ))}
+                    {timezoneSearch && filteredTimezones.length === 0 && (
+                      <div className="px-4 py-2 text-sm text-gray-500 text-left rtl:text-right">
+                        {t("students.noTimezoneFound") || "No timezone found"}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="language" className={cn("text-left rtl:text-right")}>
-              {t("students.language") || "Language"}
+              {t("students.languageLabel") || "Language"}
             </Label>
             <Select
               value={formData.language}

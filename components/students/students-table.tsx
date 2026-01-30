@@ -101,6 +101,8 @@ export function StudentsTable({
             <TableHead>{t("students.name")}</TableHead>
             <TableHead>{t("students.email")}</TableHead>
             <TableHead>{t("students.whatsapp")}</TableHead>
+            <TableHead>{t("students.currency")}</TableHead>
+            <TableHead>{t("students.country")}</TableHead>
             <TableHead>{t("students.type.label") || "Type"}</TableHead>
             <TableHead>{t("students.status")}</TableHead>
             <TableHead>{t("students.family")}</TableHead>
@@ -112,7 +114,7 @@ export function StudentsTable({
         <TableBody>
           {students.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="h-24 text-center">
+              <TableCell colSpan={10} className="h-24 text-center">
                 <div className="flex flex-col items-center justify-center gap-2">
                   <p className="text-sm text-gray-500">
                     {t("students.noStudentsFound")}
@@ -145,7 +147,7 @@ export function StudentsTable({
                       {student.full_name}
                     </div>
                     {student.whatsapp && (
-                      <div className="text-xs text-gray-500 truncate">
+                      <div className="text-xs text-gray-500 truncate" dir="ltr">
                         {student.whatsapp}
                       </div>
                     )}
@@ -155,7 +157,19 @@ export function StudentsTable({
                   <div className="text-sm text-gray-600">{student.email || "—"}</div>
                 </TableCell>
                 <TableCell>
-                  <div className="text-sm text-gray-600">{student.whatsapp || "—"}</div>
+                  <div className="text-sm text-gray-600" dir="ltr">
+                    {student.whatsapp || "—"}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm text-gray-600 font-medium">
+                    {student.currency || "—"}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm text-gray-600">
+                    {student.country || "—"}
+                  </div>
                 </TableCell>
                 <TableCell>{getTypeBadge(student.type)}</TableCell>
                 <TableCell>{getStatusBadge(student.status)}</TableCell>

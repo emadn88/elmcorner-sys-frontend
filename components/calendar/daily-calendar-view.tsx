@@ -113,6 +113,7 @@ export function DailyCalendarView({
 }: DailyCalendarViewProps) {
   const { language, t } = useLanguage();
   const [selectedClass, setSelectedClass] = useState<ClassInstance | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const dayClasses = useMemo(() => {
     return classes.filter((classItem) => {
@@ -276,7 +277,10 @@ export function DailyCalendarView({
                       height: `${height}px`,
                       minHeight: "60px",
                     }}
-                    onClick={() => setSelectedClass(classItem)}
+                    onClick={() => {
+                      setSelectedClass(classItem);
+                      setIsModalOpen(true);
+                    }}
                   >
                     <div className="p-3 h-full flex flex-col justify-between text-white">
                       <div>
@@ -313,72 +317,23 @@ export function DailyCalendarView({
         </div>
       </div>
 
-      {/* Class Details Dialog */}
-      <Dialog
-        open={selectedClass !== null}
-        onOpenChange={(open) => {
-          if (!open) setSelectedClass(null);
-        }}
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedClass && (
-                <>
-                  {selectedClass.student?.full_name || t("teacher.unknownStudent") || "Unknown Student"}
-                </>
-              )}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedClass && format(parseISO(selectedClass.class_date), language === "ar" ? "EEEE، d MMMM yyyy" : "EEEE, MMMM d, yyyy")}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedClass && (
-            <div className="space-y-4 mt-4">
-              <div className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <User className="h-4 w-4 text-gray-500" />
-                      <span className="font-semibold text-gray-900">
-                        {selectedClass.student?.full_name || t("teacher.unknownStudent") || "Unknown Student"}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <BookOpen className="h-3.5 w-3.5 text-gray-500" />
-                      <span>{selectedClass.course?.name || t("teacher.unknownCourse") || "Unknown Course"}</span>
-                    </div>
-                  </div>
-                  <Badge className={getStatusBadgeColor(selectedClass.status)}>
-                    {selectedClass.status.replace("_", " ")}
-                  </Badge>
-                </div>
-                
-                <div className="flex items-center gap-4 text-sm text-gray-600">
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="h-4 w-4 text-gray-400" />
-                    <span>
-                      {formatTime(selectedClass.start_time || "00:00")} - {formatTime(selectedClass.end_time || "00:00")}
-                    </span>
-                  </div>
-                  {selectedClass.duration && (
-                    <span className="text-gray-500">
-                      {selectedClass.duration} {language === "ar" ? "دقيقة" : "min"}
-                    </span>
-                  )}
-                </div>
-                
-                {selectedClass.notes && (
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <p className="text-sm text-gray-600">{selectedClass.notes}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Class Details Modal */}
+      {selectedClass && (
+        <ClassDetailsModal
+          open={isModalOpen}
+          onOpenChange={(open) => {
+            setIsModalOpen(open);
+            if (!open) setSelectedClass(null);
+          }}
+          classItem={selectedClass as any}
+          onUpdate={() => {
+            // Refresh will be handled by parent component
+            if (onDateChange) {
+              onDateChange(currentDate);
+            }
+          }}
+        />
+      )}
     </>
   );
 }

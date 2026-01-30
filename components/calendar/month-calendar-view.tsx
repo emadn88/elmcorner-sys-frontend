@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ClassDetailsModal } from "@/components/teacher/class-details-modal";
 import { useLanguage } from "@/contexts/language-context";
 
 interface MonthCalendarViewProps {
@@ -95,6 +96,8 @@ export function MonthCalendarView({
   const { language, t } = useLanguage();
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedClasses, setSelectedClasses] = useState<ClassInstance[]>([]);
+  const [selectedClass, setSelectedClass] = useState<ClassInstance | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   const WEEK_DAYS = language === "ar" ? WEEK_DAYS_AR : WEEK_DAYS_EN;
 
@@ -268,7 +271,13 @@ export function MonthCalendarView({
                   key={classItem.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => {
+                    setSelectedClass(classItem);
+                    setIsModalOpen(true);
+                    setSelectedDate(null);
+                    setSelectedClasses([]);
+                  }}
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">

@@ -34,6 +34,7 @@ import { StudentService } from "@/lib/services/student.service";
 import { StudentProfile } from "@/lib/api/types";
 import { useLanguage } from "@/contexts/language-context";
 import { StudentFormModal } from "@/components/students/student-form-modal";
+import { getTimezoneByIdentifier } from "@/lib/timezones";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -439,7 +440,7 @@ export default function StudentProfilePage() {
                       {t("students.timezone") || "Timezone"}
                     </label>
                     <p className={cn("text-base font-medium text-gray-900", direction === "rtl" && "text-right")}>
-                      {student.timezone}
+                      {getTimezoneByIdentifier(student.timezone)?.displayName || student.timezone}
                     </p>
                   </div>
                   {student.tags && student.tags.length > 0 && (

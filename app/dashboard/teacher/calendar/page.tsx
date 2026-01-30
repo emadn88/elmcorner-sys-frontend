@@ -30,6 +30,7 @@ import { ClassInstance } from "@/lib/api/types";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { MonthCalendarView } from "@/components/calendar/month-calendar-view";
 import { DailyCalendarView } from "@/components/calendar/daily-calendar-view";
+import { ClassDetailsModal } from "@/components/teacher/class-details-modal";
 import { cn } from "@/lib/utils";
 
 type ViewMode = "month" | "week" | "day" | "list";
@@ -66,6 +67,8 @@ export default function TeacherCalendarPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [selectedClass, setSelectedClass] = useState<ClassInstance | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchClasses();
@@ -440,6 +443,13 @@ export default function TeacherCalendarPage() {
             onPreviousDay={handlePreviousDay}
             onNextDay={handleNextDay}
             onToday={handleToday}
+            onDateChange={(date) => {
+              setCurrentDate(date);
+              const monthStart = startOfMonth(date);
+              const monthEnd = endOfMonth(date);
+              setDateFrom(format(monthStart, "yyyy-MM-dd"));
+              setDateTo(format(monthEnd, "yyyy-MM-dd"));
+            }}
             isLoading={isLoading}
           />
         ) : (
@@ -466,7 +476,11 @@ export default function TeacherCalendarPage() {
                       key={classItem.id}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => {
+                        setSelectedClass(classItem as any);
+                        setIsModalOpen(true);
+                      }}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -508,6 +522,16 @@ export default function TeacherCalendarPage() {
           </Card>
         )}
       </motion.div>
+
+      {/* Class Details Modal */}
+      {selectedClass && (
+        <ClassDetailsModal
+          open={isModalOpen}
+          onOpenChange={setIsModalOpen}
+          classItem={selectedClass as any}
+          onUpdate={fetchClasses}
+        />
+      )}
     </motion.div>
   );
 }

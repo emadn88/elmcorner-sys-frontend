@@ -10,6 +10,7 @@ import { useLanguage } from "@/contexts/language-context";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { TeacherService } from "@/lib/services/teacher.service";
 import { TeacherAvailability, ClassInstance, TrialClass } from "@/lib/api/types";
+import { ClassDetailsModal } from "@/components/teacher/class-details-modal";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -117,6 +118,8 @@ export default function TeacherAvailabilityPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [selectedClass, setSelectedClass] = useState<ClassInstance | null>(null);
+  const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [apologyReason, setApologyReason] = useState("");
   const [newStatus, setNewStatus] = useState("");
   const [isAvailabilityCollapsed, setIsAvailabilityCollapsed] = useState(false);
@@ -608,9 +611,16 @@ export default function TeacherAvailabilityPage() {
   };
 
   const handleEventClick = (event: CalendarEvent) => {
-    setSelectedEvent(event);
-    setNewStatus(event.status);
-    setIsEventModalOpen(true);
+    // If it's a class, open ClassDetailsModal
+    if (event.type === "class" && event.data) {
+      setSelectedClass(event.data as ClassInstance);
+      setIsClassModalOpen(true);
+    } else {
+      // For trials, use the existing modal
+      setSelectedEvent(event);
+      setNewStatus(event.status);
+      setIsEventModalOpen(true);
+    }
   };
 
   const handleSaveStatus = async () => {
@@ -1378,6 +1388,19 @@ export default function TeacherAvailabilityPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Class Details Modal */}
+      {selectedClass && (
+        <ClassDetailsModal
+          open={isClassModalOpen}
+          onOpenChange={(open) => {
+            setIsClassModalOpen(open);
+            if (!open) setSelectedClass(null);
+          }}
+          classItem={selectedClass as any}
+          onUpdate={fetchData}
+        />
+      )}
     </div>
   );
 }
