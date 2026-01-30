@@ -81,6 +81,12 @@ export function TrialFormModal({
     trial_date: "",
     start_time: "",
     end_time: "",
+    student_date: "",
+    student_start_time: "",
+    student_end_time: "",
+    teacher_date: "",
+    teacher_start_time: "",
+    teacher_end_time: "",
     notes: "",
   });
 
@@ -122,6 +128,12 @@ export function TrialFormModal({
           trial_date: trial.trial_date.split('T')[0],
           start_time: trial.start_time.substring(0, 5),
           end_time: trial.end_time.substring(0, 5),
+          student_date: (trial as any).student_date ? (trial as any).student_date.split('T')[0] : "",
+          student_start_time: (trial as any).student_start_time ? (trial as any).student_start_time.substring(0, 5) : "",
+          student_end_time: (trial as any).student_end_time ? (trial as any).student_end_time.substring(0, 5) : "",
+          teacher_date: (trial as any).teacher_date ? (trial as any).teacher_date.split('T')[0] : "",
+          teacher_start_time: (trial as any).teacher_start_time ? (trial as any).teacher_start_time.substring(0, 5) : "",
+          teacher_end_time: (trial as any).teacher_end_time ? (trial as any).teacher_end_time.substring(0, 5) : "",
           notes: trial.notes || "",
         });
         if (trial.student) {
@@ -140,6 +152,12 @@ export function TrialFormModal({
           trial_date: new Date().toISOString().split('T')[0],
           start_time: "",
           end_time: "",
+          student_date: "",
+          student_start_time: "",
+          student_end_time: "",
+          teacher_date: "",
+          teacher_start_time: "",
+          teacher_end_time: "",
           notes: "",
         });
         setNewStudentData({
@@ -285,8 +303,13 @@ export function TrialFormModal({
   };
 
   const handleAvailabilitySlotSelect = (slot: TeacherAvailabilitySlot) => {
+    // When selecting from teacher availability, populate teacher time fields
+    // User will need to set student times separately based on student timezone
     setFormData({
       ...formData,
+      teacher_start_time: slot.start_time.substring(0, 5),
+      teacher_end_time: slot.end_time.substring(0, 5),
+      // Also set legacy fields for backward compatibility
       start_time: slot.start_time.substring(0, 5),
       end_time: slot.end_time.substring(0, 5),
     });
@@ -339,23 +362,45 @@ export function TrialFormModal({
       return;
     }
 
-    if (!formData.trial_date || formData.trial_date.trim() === "") {
-      setError(t("trials.validation.dateRequired") || "Please select a trial date");
+    // Validate student times
+    if (!formData.student_date || formData.student_date.trim() === "") {
+      setError(t("trials.validation.studentDateRequired") || "Please select a student date");
       return;
     }
 
-    if (!formData.start_time || formData.start_time.trim() === "") {
-      setError(t("trials.validation.startTimeRequired") || "Please enter a start time");
+    if (!formData.student_start_time || formData.student_start_time.trim() === "") {
+      setError(t("trials.validation.studentStartTimeRequired") || "Please enter a student start time");
       return;
     }
 
-    if (!formData.end_time || formData.end_time.trim() === "") {
-      setError(t("trials.validation.endTimeRequired") || "Please enter an end time");
+    if (!formData.student_end_time || formData.student_end_time.trim() === "") {
+      setError(t("trials.validation.studentEndTimeRequired") || "Please enter a student end time");
       return;
     }
 
-    if (formData.end_time <= formData.start_time) {
-      setError(t("trials.validation.endTimeAfterStart") || "End time must be after start time");
+    if (formData.student_end_time <= formData.student_start_time) {
+      setError(t("trials.validation.studentEndTimeAfterStart") || "Student end time must be after start time");
+      return;
+    }
+
+    // Validate teacher times
+    if (!formData.teacher_date || formData.teacher_date.trim() === "") {
+      setError(t("trials.validation.teacherDateRequired") || "Please select a teacher date");
+      return;
+    }
+
+    if (!formData.teacher_start_time || formData.teacher_start_time.trim() === "") {
+      setError(t("trials.validation.teacherStartTimeRequired") || "Please enter a teacher start time");
+      return;
+    }
+
+    if (!formData.teacher_end_time || formData.teacher_end_time.trim() === "") {
+      setError(t("trials.validation.teacherEndTimeRequired") || "Please enter a teacher end time");
+      return;
+    }
+
+    if (formData.teacher_end_time <= formData.teacher_start_time) {
+      setError(t("trials.validation.teacherEndTimeAfterStart") || "Teacher end time must be after start time");
       return;
     }
 
@@ -366,6 +411,12 @@ export function TrialFormModal({
         trial_date: formData.trial_date,
         start_time: formData.start_time,
         end_time: formData.end_time,
+        student_date: formData.student_date,
+        student_start_time: formData.student_start_time,
+        student_end_time: formData.student_end_time,
+        teacher_date: formData.teacher_date,
+        teacher_start_time: formData.teacher_start_time,
+        teacher_end_time: formData.teacher_end_time,
         notes: formData.notes || undefined,
       };
 
@@ -690,8 +741,8 @@ export function TrialFormModal({
                               key={slot.id}
                               type="button"
                               variant={
-                                formData.start_time === slot.start_time.substring(0, 5) &&
-                                formData.end_time === slot.end_time.substring(0, 5)
+                                formData.teacher_start_time === slot.start_time.substring(0, 5) &&
+                                formData.teacher_end_time === slot.end_time.substring(0, 5)
                                   ? "default"
                                   : "outline"
                               }
@@ -734,47 +785,130 @@ export function TrialFormModal({
             </Select>
           </div>
 
-          {/* Trial Date */}
-          <div className="space-y-2">
-            <Label htmlFor="trial_date">{t("trials.trialDate") || "Trial Date"} *</Label>
+          {/* Student Time Section */}
+          <div className="space-y-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <h3 className={cn("font-semibold text-green-800", direction === "rtl" ? "text-right" : "text-left")}>
+              {t("trials.studentTime") || "Student Time"} *
+            </h3>
+            <div className="space-y-2">
+              <Label htmlFor="student_date" className={cn("text-left rtl:text-right")}>
+                {t("trials.studentDate") || "Student Date"} *
+              </Label>
+              <Input
+                id="student_date"
+                type="date"
+                value={formData.student_date}
+                onChange={(e) => setFormData({ ...formData, student_date: e.target.value })}
+                min={new Date().toISOString().split('T')[0]}
+                required
+                dir="rtl"
+                className={direction === "rtl" ? "text-right" : ""}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="student_start_time" className={cn("text-left rtl:text-right")}>
+                  {t("trials.studentStartTime") || "Student Start Time"} *
+                </Label>
+                <Input
+                  id="student_start_time"
+                  type="time"
+                  value={formData.student_start_time}
+                  onChange={(e) => setFormData({ ...formData, student_start_time: e.target.value })}
+                  required
+                  dir="rtl"
+                  className={direction === "rtl" ? "text-right" : ""}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="student_end_time" className={cn("text-left rtl:text-right")}>
+                  {t("trials.studentEndTime") || "Student End Time"} *
+                </Label>
+                <Input
+                  id="student_end_time"
+                  type="time"
+                  value={formData.student_end_time}
+                  onChange={(e) => setFormData({ ...formData, student_end_time: e.target.value })}
+                  required
+                  dir="rtl"
+                  className={direction === "rtl" ? "text-right" : ""}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Teacher Time Section */}
+          <div className="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 className={cn("font-semibold text-blue-800", direction === "rtl" ? "text-right" : "text-left")}>
+              {t("trials.teacherTime") || "Teacher Time"} *
+            </h3>
+            <div className="space-y-2">
+              <Label htmlFor="teacher_date" className={cn("text-left rtl:text-right")}>
+                {t("trials.teacherDate") || "Teacher Date"} *
+              </Label>
+              <Input
+                id="teacher_date"
+                type="date"
+                value={formData.teacher_date}
+                onChange={(e) => setFormData({ ...formData, teacher_date: e.target.value })}
+                min={new Date().toISOString().split('T')[0]}
+                required
+                dir="rtl"
+                className={direction === "rtl" ? "text-right" : ""}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="teacher_start_time" className={cn("text-left rtl:text-right")}>
+                  {t("trials.teacherStartTime") || "Teacher Start Time"} *
+                </Label>
+                <Input
+                  id="teacher_start_time"
+                  type="time"
+                  value={formData.teacher_start_time}
+                  onChange={(e) => setFormData({ ...formData, teacher_start_time: e.target.value })}
+                  required
+                  dir="rtl"
+                  className={direction === "rtl" ? "text-right" : ""}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="teacher_end_time" className={cn("text-left rtl:text-right")}>
+                  {t("trials.teacherEndTime") || "Teacher End Time"} *
+                </Label>
+                <Input
+                  id="teacher_end_time"
+                  type="time"
+                  value={formData.teacher_end_time}
+                  onChange={(e) => setFormData({ ...formData, teacher_end_time: e.target.value })}
+                  required
+                  dir="rtl"
+                  className={direction === "rtl" ? "text-right" : ""}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Legacy fields (hidden, for backward compatibility) */}
+          <div className="hidden">
             <Input
               id="trial_date"
               type="date"
-              value={formData.trial_date}
+              value={formData.trial_date || formData.student_date}
               onChange={(e) => setFormData({ ...formData, trial_date: e.target.value })}
-              min={new Date().toISOString().split('T')[0]}
-              required
-              dir="rtl"
-              className={direction === "rtl" ? "text-right" : ""}
             />
-          </div>
-
-          {/* Time Range */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="start_time">{t("trials.startTime") || "Start Time"} *</Label>
-              <Input
-                id="start_time"
-                type="time"
-                value={formData.start_time}
-                onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                required
-                dir="rtl"
-                className={direction === "rtl" ? "text-right" : ""}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="end_time">{t("trials.endTime") || "End Time"} *</Label>
-              <Input
-                id="end_time"
-                type="time"
-                value={formData.end_time}
-                onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                required
-                dir="rtl"
-                className={direction === "rtl" ? "text-right" : ""}
-              />
-            </div>
+            <Input
+              id="start_time"
+              type="time"
+              value={formData.start_time || formData.student_start_time}
+              onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+            />
+            <Input
+              id="end_time"
+              type="time"
+              value={formData.end_time || formData.student_end_time}
+              onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+            />
           </div>
 
           {/* Notes */}

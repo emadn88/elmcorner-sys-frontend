@@ -199,9 +199,8 @@ export function TrialsTable({
             <TableHead className="min-w-[150px] whitespace-nowrap">{t("trials.student") || "Student"}</TableHead>
             <TableHead className="min-w-[150px] whitespace-nowrap">{t("trials.teacher") || "Teacher"}</TableHead>
             <TableHead className="min-w-[120px] whitespace-nowrap">{t("trials.course") || "Course"}</TableHead>
-            <TableHead className="min-w-[100px] whitespace-nowrap">{t("trials.trialDate") || "Date"}</TableHead>
-            <TableHead className="min-w-[140px] whitespace-nowrap">{t("trials.time") || "Time"}</TableHead>
             <TableHead className="min-w-[180px] whitespace-nowrap">{t("trials.studentTime") || "Student Time"}</TableHead>
+            <TableHead className="min-w-[180px] whitespace-nowrap">{t("trials.teacherTime") || "Teacher Time"}</TableHead>
             <TableHead className="min-w-[120px] whitespace-nowrap">{t("trials.status.label") || "Status"}</TableHead>
             <TableHead className={cn("min-w-[50px] w-[50px]", direction === "rtl" ? "text-left" : "text-right")}>
               {t("trials.actions") || "Actions"}
@@ -211,7 +210,7 @@ export function TrialsTable({
         <TableBody>
           {trials.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="h-24 text-center">
+              <TableCell colSpan={7} className="h-24 text-center">
                 <div className="flex flex-col items-center justify-center gap-2">
                   <p className="text-sm text-gray-500">
                     {t("trials.noTrials") || "No trial classes found"}
@@ -237,19 +236,56 @@ export function TrialsTable({
                     {trial.course?.name || `Course #${trial.course_id}`}
                   </div>
                 </TableCell>
-                <TableCell className="min-w-[100px] whitespace-nowrap">{formatDate(trial.trial_date)}</TableCell>
-                <TableCell className="min-w-[140px] whitespace-nowrap" dir="ltr">
-                  {formatTime(trial.start_time)} - {formatTime(trial.end_time)}
-                </TableCell>
+                {/* Student Time */}
                 <TableCell className="min-w-[180px] whitespace-nowrap" dir="ltr">
-                  {convertToStudentTimezone(
-                    trial.trial_date,
-                    trial.start_time,
-                    trial.student?.timezone
-                  )} - {convertToStudentTimezone(
-                    trial.trial_date,
-                    trial.end_time,
-                    trial.student?.timezone
+                  {trial.student_date && trial.student_start_time && trial.student_end_time ? (
+                    <div className="flex flex-col gap-1">
+                      <div className="text-sm font-medium text-green-700">
+                        {formatDate(trial.student_date)}
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        {formatTime(trial.student_start_time)} - {formatTime(trial.student_end_time)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-1">
+                      <div className="text-sm font-medium text-gray-500">
+                        {formatDate(trial.trial_date)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {convertToStudentTimezone(
+                          trial.trial_date,
+                          trial.start_time,
+                          trial.student?.timezone
+                        )} - {convertToStudentTimezone(
+                          trial.trial_date,
+                          trial.end_time,
+                          trial.student?.timezone
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </TableCell>
+                {/* Teacher Time */}
+                <TableCell className="min-w-[180px] whitespace-nowrap" dir="ltr">
+                  {trial.teacher_date && trial.teacher_start_time && trial.teacher_end_time ? (
+                    <div className="flex flex-col gap-1">
+                      <div className="text-sm font-medium text-blue-700">
+                        {formatDate(trial.teacher_date)}
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        {formatTime(trial.teacher_start_time)} - {formatTime(trial.teacher_end_time)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-1">
+                      <div className="text-sm font-medium text-gray-500">
+                        {formatDate(trial.trial_date)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {formatTime(trial.start_time)} - {formatTime(trial.end_time)}
+                      </div>
+                    </div>
                   )}
                 </TableCell>
                 <TableCell className="min-w-[120px]">

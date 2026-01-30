@@ -404,6 +404,43 @@ export interface TrialClass {
   trial_date: string;
   start_time: string;
   end_time: string;
+  student_date?: string;
+  student_start_time?: string;
+  student_end_time?: string;
+  teacher_date?: string;
+  teacher_start_time?: string;
+  teacher_end_time?: string;
+  status: 'pending' | 'completed' | 'no_show' | 'converted';
+  converted_to_package_id?: number;
+  notes?: string;
+  meet_link_used?: boolean;
+  meet_link_accessed_at?: string;
+  reminder_5min_before_sent?: boolean;
+  reminder_start_time_sent?: boolean;
+  reminder_5min_after_sent?: boolean;
+  student?: Student;
+  teacher?: Teacher;
+  course?: Course;
+  convertedPackage?: Package;
+  created_at: string;
+  updated_at: string;
+}
+
+// Legacy interface for backward compatibility
+export interface TrialClassLegacy {
+  id: number;
+  student_id: number;
+  teacher_id: number;
+  course_id: number;
+  trial_date: string;
+  start_time: string;
+  end_time: string;
+  student_date?: string;
+  student_start_time?: string;
+  student_end_time?: string;
+  teacher_date?: string;
+  teacher_start_time?: string;
+  teacher_end_time?: string;
   status: 'pending' | 'pending_review' | 'completed' | 'no_show' | 'converted';
   converted_to_package_id?: number;
   notes?: string;
