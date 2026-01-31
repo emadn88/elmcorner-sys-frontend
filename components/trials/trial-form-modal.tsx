@@ -532,9 +532,6 @@ export function TrialFormModal({
                           }}
                         >
                           {student.full_name}
-                          {student.email && (
-                            <span className="text-xs text-gray-500 ml-2">({student.email})</span>
-                          )}
                         </div>
                       ))}
                     </div>
