@@ -158,7 +158,6 @@ export function TrialFormModal({
           setTimeout(() => {
             loadTeacherCourses(trial.teacher_id);
           }, 100);
-          loadTeacherAvailability(trial.teacher_id);
         }
       } else {
         setFormData({
@@ -247,27 +246,17 @@ export function TrialFormModal({
     }
   }, [showStudentDropdown]);
 
-  // Load teacher courses and availability when teacher is selected
+  // Load teacher courses when teacher is selected
   useEffect(() => {
     if (formData.teacher_id) {
       // Load teacher's courses
       loadTeacherCourses(parseInt(formData.teacher_id));
-      
-      // Load teacher availability
-      if (formData.teacher_date) {
-        // Load available time slots for the selected date (excludes booked times)
-        loadAvailableTimeSlots(parseInt(formData.teacher_id), formData.teacher_date);
-      } else {
-        // Load general availability if no date selected
-        loadTeacherAvailability(parseInt(formData.teacher_id));
-      }
     } else {
       // If no teacher selected, show all courses
       setCourses(allCourses);
       setSelectedTeacherCourses([]);
-      setTeacherAvailability([]);
     }
-  }, [formData.teacher_id, formData.teacher_date, allCourses]);
+  }, [formData.teacher_id, allCourses]);
 
 
   const loadTeachers = async () => {
@@ -337,20 +326,6 @@ export function TrialFormModal({
       setIsLoadingAvailability(false);
     }
   };
-
-  const handleAvailabilitySlotSelect = (slot: TeacherAvailabilitySlot) => {
-    // When selecting from teacher availability, populate teacher time fields
-    // User will need to set student times separately based on student timezone
-    setFormData({
-      ...formData,
-      teacher_start_time: slot.start_time.substring(0, 5),
-      teacher_end_time: slot.end_time.substring(0, 5),
-      // Also set legacy fields for backward compatibility
-      start_time: slot.start_time.substring(0, 5),
-      end_time: slot.end_time.substring(0, 5),
-    });
-  };
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -442,34 +417,6 @@ export function TrialFormModal({
 
   const selectedStudent = students.find((s) => s.id.toString() === formData.student_id) ||
     (trial?.student && trial.student.id.toString() === formData.student_id ? trial.student : null);
-  
-  // Get day of week for selected date (0 = Sunday, 1 = Monday, etc. -> convert to 1-7)
-  const getDayOfWeek = (dateString: string): number | null => {
-    if (!dateString) return null;
-    try {
-      const date = new Date(dateString);
-      // Convert from 0-6 (Sun-Sat) to 1-7 (Sun-Sat)
-      return date.getDay() === 0 ? 7 : date.getDay();
-    } catch {
-      return null;
-    }
-  };
-
-  const selectedDateDayOfWeek = getDayOfWeek(formData.trial_date);
-  
-  // Filter availability by selected date's day of week, or show all if no date selected
-  const filteredAvailability = selectedDateDayOfWeek
-    ? teacherAvailability.filter((slot) => slot.day_of_week === selectedDateDayOfWeek)
-    : teacherAvailability;
-  
-  // Group availability by day
-  const availabilityByDay = filteredAvailability.reduce((acc, slot) => {
-    if (!acc[slot.day_of_week]) {
-      acc[slot.day_of_week] = [];
-    }
-    acc[slot.day_of_week].push(slot);
-    return acc;
-  }, {} as Record<number, TeacherAvailabilitySlot[]>);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -584,58 +531,6 @@ export function TrialFormModal({
               </SelectContent>
             </Select>
           </div>
-
-          {/* Teacher Availability */}
-          {formData.teacher_id && (
-            <div className="space-y-2 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <Label>
-                {t("trials.teacherAvailability") || "Teacher Available Times"}
-                {selectedDateDayOfWeek && (
-                  <span className="text-xs font-normal text-gray-600 ml-2">
-                    ({t("trials.forSelectedDate") || "for selected date"})
-                  </span>
-                )}
-              </Label>
-              {isLoadingAvailability ? (
-                <p className="text-sm text-gray-600">{t("common.loading") || "Loading..."}</p>
-              ) : filteredAvailability.length === 0 ? (
-                <p className="text-sm text-yellow-600">
-                  {formData.trial_date
-                    ? t("trials.noAvailabilityForDate") || "This teacher has no availability for the selected date"
-                    : t("trials.selectDateFirst") || "Please select a date first to see available times"}
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {Object.entries(availabilityByDay).map(([day, slots]) => {
-                    const dayLabel = DAYS_OF_WEEK.find((d) => d.value === parseInt(day))?.label;
-                    return (
-                      <div key={day} className="space-y-1">
-                        <div className="font-medium text-sm">{dayLabel}</div>
-                        <div className="flex flex-wrap gap-2">
-                          {slots.map((slot) => (
-                            <Button
-                              key={slot.id}
-                              type="button"
-                              variant={
-                                formData.teacher_start_time === slot.start_time.substring(0, 5) &&
-                                formData.teacher_end_time === slot.end_time.substring(0, 5)
-                                  ? "default"
-                                  : "outline"
-                              }
-                              size="sm"
-                              onClick={() => handleAvailabilitySlotSelect(slot)}
-                            >
-                              {slot.start_time.substring(0, 5)} - {slot.end_time.substring(0, 5)}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Course Selector */}
           <div className="space-y-2">
