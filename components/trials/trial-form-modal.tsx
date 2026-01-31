@@ -20,7 +20,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { TrialClass, TeacherAvailability } from "@/lib/api/types";
 import { StudentService } from "@/lib/services/student.service";
 import { TeacherService } from "@/lib/services/teacher.service";
@@ -32,6 +31,7 @@ import { useLanguage } from "@/contexts/language-context";
 import { COUNTRIES, getTimezoneForCountry, getCurrencyForCountry } from "@/lib/countries-timezones";
 import { cn } from "@/lib/utils";
 import { ModernSpinner } from "@/components/ui/loading-spinner";
+import { Calendar, Clock, User, GraduationCap } from "lucide-react";
 
 interface TrialFormModalProps {
   open: boolean;
@@ -70,9 +70,6 @@ export function TrialFormModal({
   const { t, direction } = useLanguage();
   const isEdit = !!trial;
 
-  // Student selection mode: 'new' or 'existing'
-  const [studentMode, setStudentMode] = useState<"new" | "existing">("new");
-
   // Form state
   const [formData, setFormData] = useState({
     student_id: "",
@@ -90,29 +87,47 @@ export function TrialFormModal({
     notes: "",
   });
 
-  // New student form data
-  const [newStudentData, setNewStudentData] = useState({
-    full_name: "",
-    email: "",
-    whatsapp: "",
-    country: "",
-    currency: "USD",
-    timezone: "Africa/Cairo",
-    language: "ar" as "ar" | "en" | "fr",
-  });
-
   const [students, setStudents] = useState<Student[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [allCourses, setAllCourses] = useState<Course[]>([]); // Store all courses
   const [teacherAvailability, setTeacherAvailability] = useState<TeacherAvailabilitySlot[]>([]);
   const [studentSearch, setStudentSearch] = useState("");
-  const [countrySearch, setCountrySearch] = useState("");
-  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [showStudentDropdown, setShowStudentDropdown] = useState(false);
+  const [selectedTeacherCourses, setSelectedTeacherCourses] = useState<Course[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [isLoadingTeachers, setIsLoadingTeachers] = useState(false);
   const [isLoadingCourses, setIsLoadingCourses] = useState(false);
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
+
+  // Load teacher with courses when teacher is selected
+  const loadTeacherCourses = async (teacherId: number) => {
+    try {
+      // Get teacher profile which includes courses
+      const response = await apiClient.get(API_ENDPOINTS.ADMIN.TEACHER(teacherId));
+      if (response.status === "success" && response.data) {
+        // The response might be a profile object with teacher inside, or just the teacher
+        const teacher = (response.data as any).teacher || response.data;
+        if (teacher.courses && teacher.courses.length > 0) {
+          setSelectedTeacherCourses(teacher.courses);
+          setCourses(teacher.courses); // Filter courses to only show teacher's courses
+        } else {
+          // If teacher has no courses assigned, show all courses (or empty if not loaded yet)
+          setSelectedTeacherCourses([]);
+          setCourses(allCourses.length > 0 ? allCourses : []);
+        }
+      } else {
+        setSelectedTeacherCourses([]);
+        setCourses(allCourses.length > 0 ? allCourses : []);
+      }
+    } catch (err) {
+      console.error("Error loading teacher courses:", err);
+      // On error, show all courses (or empty if not loaded yet)
+      setSelectedTeacherCourses([]);
+      setCourses(allCourses.length > 0 ? allCourses : []);
+    }
+  };
 
   // Load initial data
   useEffect(() => {
@@ -120,7 +135,6 @@ export function TrialFormModal({
       loadTeachers();
       loadCourses();
       if (trial) {
-        setStudentMode("existing");
         setFormData({
           student_id: trial.student_id.toString(),
           teacher_id: trial.teacher_id.toString(),
@@ -137,14 +151,16 @@ export function TrialFormModal({
           notes: trial.notes || "",
         });
         if (trial.student) {
-          setStudents([trial.student]);
           setStudentSearch(trial.student.full_name);
         }
         if (trial.teacher_id) {
+          // Load teacher courses after a short delay to ensure allCourses is loaded
+          setTimeout(() => {
+            loadTeacherCourses(trial.teacher_id);
+          }, 100);
           loadTeacherAvailability(trial.teacher_id);
         }
       } else {
-        setStudentMode("new");
         setFormData({
           student_id: "",
           teacher_id: "",
@@ -160,80 +176,99 @@ export function TrialFormModal({
           teacher_end_time: "",
           notes: "",
         });
-        setNewStudentData({
-          full_name: "",
-          email: "",
-          whatsapp: "",
-          country: "",
-          currency: "USD",
-          timezone: "Africa/Cairo",
-          language: "ar",
-        });
-        setCountrySearch("");
-        setShowCountryDropdown(false);
-        setStudents([]);
+        setStudentSearch("");
+        setShowStudentDropdown(false);
         setTeacherAvailability([]);
       }
       setError(null);
     }
   }, [open, trial]);
 
-  // Load students on search
-  useEffect(() => {
-    if (open && studentSearch && studentMode === "existing") {
-      setIsLoadingStudents(true);
-      StudentService.getStudents({ search: studentSearch, per_page: 10 })
-        .then((response) => {
-          setStudents(response.data);
-        })
-        .catch(() => {
-          setStudents([]);
-        })
-        .finally(() => setIsLoadingStudents(false));
-    } else if (open && !studentSearch && studentMode === "existing") {
+  // Load all students function
+  const loadAllStudents = async () => {
+    setIsLoadingStudents(true);
+    try {
+      const response = await StudentService.getStudents({ per_page: 1000 });
+      setStudents(response.data);
+    } catch (err) {
+      console.error("Error loading students:", err);
       setStudents([]);
+    } finally {
+      setIsLoadingStudents(false);
     }
-  }, [studentSearch, open, studentMode]);
+  };
+
+  // Load students when modal opens
+  useEffect(() => {
+    if (open) {
+      loadAllStudents();
+    }
+  }, [open]);
+
+  // Filter students based on search in real-time
+  useEffect(() => {
+    if (!open || !showStudentDropdown) return;
+    
+    const searchTimeout = setTimeout(() => {
+      if (studentSearch.trim()) {
+        setIsLoadingStudents(true);
+        StudentService.getStudents({ search: studentSearch, per_page: 100 })
+          .then((response) => {
+            setStudents(response.data);
+          })
+          .catch(() => {
+            // Keep existing students
+          })
+          .finally(() => setIsLoadingStudents(false));
+      } else {
+        // If search is empty, reload all students
+        if (students.length === 0) {
+          loadAllStudents();
+        }
+      }
+    }, 300); // Debounce search by 300ms
+
+    return () => clearTimeout(searchTimeout);
+  }, [studentSearch, open, showStudentDropdown]);
 
 
-  // Load teacher availability when teacher is selected
+  // Close student dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.student-dropdown-container')) {
+        setShowStudentDropdown(false);
+      }
+    };
+
+    if (showStudentDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showStudentDropdown]);
+
+  // Load teacher courses and availability when teacher is selected
   useEffect(() => {
     if (formData.teacher_id) {
-      if (formData.trial_date) {
+      // Load teacher's courses
+      loadTeacherCourses(parseInt(formData.teacher_id));
+      
+      // Load teacher availability
+      if (formData.teacher_date) {
         // Load available time slots for the selected date (excludes booked times)
-        loadAvailableTimeSlots(parseInt(formData.teacher_id), formData.trial_date);
+        loadAvailableTimeSlots(parseInt(formData.teacher_id), formData.teacher_date);
       } else {
         // Load general availability if no date selected
         loadTeacherAvailability(parseInt(formData.teacher_id));
       }
     } else {
+      // If no teacher selected, show all courses
+      setCourses(allCourses);
+      setSelectedTeacherCourses([]);
       setTeacherAvailability([]);
     }
-  }, [formData.teacher_id, formData.trial_date]);
+  }, [formData.teacher_id, formData.teacher_date, allCourses]);
 
-  // Sync country search with selected country
-  useEffect(() => {
-    if (newStudentData.country) {
-      setCountrySearch(newStudentData.country);
-    } else {
-      setCountrySearch("");
-    }
-  }, [newStudentData.country]);
-
-  // Close country dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest('.country-dropdown-container')) {
-        setShowCountryDropdown(false);
-      }
-    };
-
-    if (showCountryDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [showCountryDropdown]);
 
   const loadTeachers = async () => {
     setIsLoadingTeachers(true);
@@ -251,7 +286,8 @@ export function TrialFormModal({
     setIsLoadingCourses(true);
     try {
       const response = await CourseService.getCourses({ per_page: 100 });
-      setCourses(response.data);
+      setAllCourses(response.data);
+      setCourses(response.data); // Initially show all courses
     } catch (err) {
       console.error("Error loading courses:", err);
     } finally {
@@ -315,40 +351,15 @@ export function TrialFormModal({
     });
   };
 
-  const handleCountryChange = (countryName: string) => {
-    const country = COUNTRIES.find((c) => c.name === countryName);
-    if (country) {
-      setNewStudentData({
-        ...newStudentData,
-        country: country.name,
-        currency: getCurrencyForCountry(country.code) || "USD",
-        timezone: getTimezoneForCountry(country.code) || "Africa/Cairo",
-      });
-      setCountrySearch(country.name);
-      setShowCountryDropdown(false);
-    }
-  };
-
-  // Filter countries based on search
-  const filteredCountries = COUNTRIES.filter((country) =>
-    country.name.toLowerCase().includes(countrySearch.toLowerCase())
-  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    // Validate based on student mode
-    if (studentMode === "new") {
-      if (!newStudentData.full_name || newStudentData.full_name.trim() === "") {
-        setError(t("trials.validation.studentNameRequired") || "Student name is required");
-        return;
-      }
-    } else {
-      if (!formData.student_id || formData.student_id.trim() === "") {
-        setError(t("trials.validation.studentRequired") || "Please select a student");
-        return;
-      }
+    // Validate student selection
+    if (!formData.student_id || formData.student_id.trim() === "") {
+      setError(t("trials.validation.studentRequired") || "Please select a student");
+      return;
     }
 
     // More explicit validation with better error messages
@@ -420,11 +431,7 @@ export function TrialFormModal({
         notes: formData.notes || undefined,
       };
 
-      if (studentMode === "new") {
-        trialData.new_student = newStudentData;
-      } else {
-        trialData.student_id = parseInt(formData.student_id);
-      }
+      trialData.student_id = parseInt(formData.student_id);
 
       await onSave(trialData);
       onOpenChange(false);
@@ -485,212 +492,84 @@ export function TrialFormModal({
             </div>
           )}
 
-          {/* Student Selection Mode */}
-          {!isEdit && (
-            <div className="space-y-2">
-              <Label>{t("trials.studentMode") || "Student"}</Label>
-              <RadioGroup
-                value={studentMode}
-                onValueChange={(value) => setStudentMode(value as "new" | "existing")}
-                className="flex gap-6"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="new" id="new-student" />
-                  <Label htmlFor="new-student" className="cursor-pointer">
-                    {t("trials.newStudent") || "New Student"}
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="existing" id="existing-student" />
-                  <Label htmlFor="existing-student" className="cursor-pointer">
-                    {t("trials.existingStudent") || "Existing Student"}
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
-          )}
-
-          {/* New Student Form */}
-          {studentMode === "new" && !isEdit && (
-            <div className="space-y-4 p-4 bg-gray-50 rounded-lg border">
-              <h3 className={cn("font-semibold text-left rtl:text-right")}>
-                {t("trials.newStudentInfo") || "New Student Information"}
-              </h3>
-              
-              <div className="space-y-2">
-                <Label htmlFor="full_name" className={cn("text-left rtl:text-right")}>
-                  {t("trials.studentName") || "Full Name"} *
-                </Label>
-                <Input
-                  id="full_name"
-                  value={newStudentData.full_name}
-                  onChange={(e) => setNewStudentData({ ...newStudentData, full_name: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className={cn("text-left rtl:text-right")}>
-                    {t("trials.email") || "Email"}
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newStudentData.email}
-                    onChange={(e) => setNewStudentData({ ...newStudentData, email: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="whatsapp" className={cn("text-left rtl:text-right")}>
-                    {t("trials.whatsapp") || "WhatsApp"}
-                  </Label>
-                  <Input
-                    id="whatsapp"
-                    value={newStudentData.whatsapp}
-                    onChange={(e) => setNewStudentData({ ...newStudentData, whatsapp: e.target.value })}
-                    dir="ltr"
-                    className="text-left"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="country" className={cn("text-left rtl:text-right")}>
-                  {t("trials.country") || "Country"}
-                </Label>
-                <div className="relative country-dropdown-container">
-                  <Input
-                    id="country"
-                    placeholder={t("trials.searchCountry") || "Search country..."}
-                    value={countrySearch}
-                    onChange={(e) => {
-                      setCountrySearch(e.target.value);
-                      setShowCountryDropdown(true);
-                    }}
-                    onFocus={() => setShowCountryDropdown(true)}
-                    className="w-full"
-                  />
-                  {showCountryDropdown && filteredCountries.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto text-left rtl:text-right">
-                      {filteredCountries.map((country) => (
+          {/* Student Selector */}
+          <div className="space-y-2">
+            <Label htmlFor="student">{t("trials.student") || "Student"} *</Label>
+            <div className="relative student-dropdown-container">
+              <Input
+                id="student"
+                placeholder={t("trials.searchStudent") || "Search student..."}
+                value={studentSearch}
+                onChange={(e) => {
+                  setStudentSearch(e.target.value);
+                  setShowStudentDropdown(true);
+                }}
+                onFocus={() => {
+                  setShowStudentDropdown(true);
+                  if (students.length === 0) {
+                    loadAllStudents();
+                  }
+                }}
+                className="w-full"
+              />
+              {showStudentDropdown && (
+                <>
+                  {isLoadingStudents && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-4 text-center">
+                      <p className="text-sm text-gray-500">{t("common.loading") || "Loading..."}</p>
+                    </div>
+                  )}
+                  {!isLoadingStudents && students.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                      {students.map((student) => (
                         <div
-                          key={country.code}
-                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-left rtl:text-right"
-                          onClick={() => handleCountryChange(country.name)}
+                          key={student.id}
+                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                          onClick={() => {
+                            setFormData({ ...formData, student_id: student.id.toString() });
+                            setStudentSearch(student.full_name);
+                            setShowStudentDropdown(false);
+                          }}
                         >
-                          {country.name}
+                          {student.full_name}
+                          {student.email && (
+                            <span className="text-xs text-gray-500 ml-2">({student.email})</span>
+                          )}
                         </div>
                       ))}
                     </div>
                   )}
-                  {showCountryDropdown && filteredCountries.length === 0 && countrySearch && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
-                      <div className="px-4 py-2 text-gray-500 text-left rtl:text-right">
-                        {t("trials.noCountryFound") || "No country found"}
-                      </div>
+                  {!isLoadingStudents && students.length === 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-4">
+                      <p className="text-sm text-gray-500 text-center">
+                        {t("trials.noStudentsFound") || "No students found"}
+                      </p>
                     </div>
                   )}
+                </>
+              )}
+              {selectedStudent && !showStudentDropdown && (
+                <div className="mt-2 text-sm text-gray-600">
+                  {t("trials.selectedStudent") || "Selected"}: {selectedStudent.full_name}
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="language" className={cn("text-left rtl:text-right")}>
-                  {t("students.language") || "Language"}
-                </Label>
-                <Select
-                  value={newStudentData.language}
-                  onValueChange={(value) => setNewStudentData({ ...newStudentData, language: value as "ar" | "en" | "fr" })}
-                >
-                  <SelectTrigger 
-                    id="language"
-                    dir={direction === "rtl" ? "rtl" : "ltr"}
-                    className={cn(
-                      direction === "rtl" ? "text-right" : "text-left"
-                    )}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent 
-                    dir={direction === "rtl" ? "rtl" : "ltr"}
-                    className={cn(
-                      direction === "rtl" ? "text-right" : "text-left"
-                    )}
-                  >
-                    <SelectItem 
-                      value="ar"
-                      className={cn(
-                        direction === "rtl" ? "text-right" : "text-left"
-                      )}
-                    >
-                      {t("students.language.ar") || "العربية"}
-                    </SelectItem>
-                    <SelectItem 
-                      value="en"
-                      className={cn(
-                        direction === "rtl" ? "text-right" : "text-left"
-                      )}
-                    >
-                      {t("students.language.en") || "الإنجليزية"}
-                    </SelectItem>
-                    <SelectItem 
-                      value="fr"
-                      className={cn(
-                        direction === "rtl" ? "text-right" : "text-left"
-                      )}
-                    >
-                      {t("students.language.fr") || "الفرنسية"}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              )}
             </div>
-          )}
-
-          {/* Existing Student Selector */}
-          {studentMode === "existing" && (
-            <div className="space-y-2">
-              <Label htmlFor="student">{t("trials.student") || "Student"} *</Label>
-              <div className="relative">
-                <Input
-                  id="student"
-                  placeholder={t("trials.searchStudent") || "Search student..."}
-                  value={studentSearch}
-                  onChange={(e) => setStudentSearch(e.target.value)}
-                  className="w-full"
-                />
-                {studentSearch && students.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                    {students.map((student) => (
-                      <div
-                        key={student.id}
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                        onClick={() => {
-                          setFormData({ ...formData, student_id: student.id.toString() });
-                          setStudentSearch(student.full_name);
-                          setStudents([]);
-                        }}
-                      >
-                        {student.full_name}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {selectedStudent && (
-                  <div className="mt-2 text-sm text-gray-600">
-                    {t("trials.selectedStudent") || "Selected"}: {selectedStudent.full_name}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          </div>
 
           {/* Teacher Selector */}
           <div className="space-y-2">
             <Label htmlFor="teacher">{t("trials.teacher") || "Teacher"} *</Label>
             <Select
               value={formData.teacher_id}
-              onValueChange={(value) => setFormData({ ...formData, teacher_id: value, start_time: "", end_time: "" })}
+              onValueChange={(value) => {
+                setFormData({ 
+                  ...formData, 
+                  teacher_id: value, 
+                  course_id: "", // Clear course when teacher changes
+                  start_time: "", 
+                  end_time: "" 
+                });
+              }}
             >
               <SelectTrigger id="teacher" dir="rtl" className={direction === "rtl" ? "text-right" : ""}>
                 <SelectValue placeholder={t("trials.selectTeacher") || "Select teacher"} />
@@ -767,13 +646,28 @@ export function TrialFormModal({
             <Select
               value={formData.course_id}
               onValueChange={(value) => setFormData({ ...formData, course_id: value })}
+              disabled={!formData.teacher_id || isLoadingCourses}
             >
               <SelectTrigger id="course" dir="rtl" className={direction === "rtl" ? "text-right" : ""}>
-                <SelectValue placeholder={t("trials.selectCourse") || "Select course"} />
+                <SelectValue 
+                  placeholder={
+                    !formData.teacher_id 
+                      ? t("trials.selectTeacherFirst") || "Please select a teacher first"
+                      : isLoadingCourses
+                      ? t("common.loading") || "Loading..."
+                      : courses.length === 0
+                      ? t("trials.noCoursesForTeacher") || "No courses assigned to this teacher"
+                      : t("trials.selectCourse") || "Select course"
+                  } 
+                />
               </SelectTrigger>
               <SelectContent dir="rtl" className={direction === "rtl" ? "text-right" : ""}>
                 {isLoadingCourses ? (
                   <SelectItem value="loading" disabled>{t("common.loading") || "Loading..."}</SelectItem>
+                ) : courses.length === 0 ? (
+                  <SelectItem value="no-courses" disabled>
+                    {t("trials.noCoursesForTeacher") || "No courses assigned to this teacher"}
+                  </SelectItem>
                 ) : (
                   courses.map((course) => (
                     <SelectItem key={course.id} value={course.id.toString()}>
@@ -783,108 +677,150 @@ export function TrialFormModal({
                 )}
               </SelectContent>
             </Select>
+            {formData.teacher_id && selectedTeacherCourses.length === 0 && !isLoadingCourses && (
+              <p className="text-xs text-amber-600 mt-1">
+                {t("trials.teacherHasNoCourses") || "This teacher has no courses assigned. Please assign courses to this teacher first."}
+              </p>
+            )}
           </div>
 
-          {/* Student Time Section */}
-          <div className="space-y-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <h3 className={cn("font-semibold text-green-800", direction === "rtl" ? "text-right" : "text-left")}>
-              {t("trials.studentTime") || "Student Time"} *
-            </h3>
-            <div className="space-y-2">
-              <Label htmlFor="student_date" className={cn("text-left rtl:text-right")}>
-                {t("trials.studentDate") || "Student Date"} *
-              </Label>
-              <Input
-                id="student_date"
-                type="date"
-                value={formData.student_date}
-                onChange={(e) => setFormData({ ...formData, student_date: e.target.value })}
-                min={new Date().toISOString().split('T')[0]}
-                required
-                dir="rtl"
-                className={direction === "rtl" ? "text-right" : ""}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="student_start_time" className={cn("text-left rtl:text-right")}>
-                  {t("trials.studentStartTime") || "Student Start Time"} *
-                </Label>
-                <Input
-                  id="student_start_time"
-                  type="time"
-                  value={formData.student_start_time}
-                  onChange={(e) => setFormData({ ...formData, student_start_time: e.target.value })}
-                  required
-                  dir="rtl"
-                  className={direction === "rtl" ? "text-right" : ""}
-                />
+          {/* Time Sections - Side by Side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Student Time Section */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200/60 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-green-200/20 rounded-full -mr-16 -mt-16"></div>
+              <div className="relative p-5 space-y-4">
+                <div className="flex items-center gap-3 pb-2 border-b border-green-200/50">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <User className="w-5 h-5 text-green-700" />
+                  </div>
+                  <div>
+                    <h3 className={cn("font-semibold text-green-900 text-base", direction === "rtl" ? "text-right" : "text-left")}>
+                      {t("trials.studentTime") || "Student Time"}
+                    </h3>
+                    <p className="text-xs text-green-700/70 mt-0.5">
+                      {t("trials.studentTimezone") || "Student's local time"}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="student_date" className={cn("text-sm font-medium text-green-900 flex items-center gap-1.5", direction === "rtl" ? "text-right flex-row-reverse" : "text-left")}>
+                      <Calendar className="w-4 h-4" />
+                      {t("trials.studentDate") || "Date"} *
+                    </Label>
+                    <Input
+                      id="student_date"
+                      type="date"
+                      value={formData.student_date}
+                      onChange={(e) => setFormData({ ...formData, student_date: e.target.value })}
+                      min={new Date().toISOString().split('T')[0]}
+                      required
+                      className="bg-white/80 border-green-200 focus:border-green-400 focus:ring-green-400/20"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="student_start_time" className={cn("text-sm font-medium text-green-900 flex items-center gap-1.5", direction === "rtl" ? "text-right flex-row-reverse" : "text-left")}>
+                        <Clock className="w-4 h-4" />
+                        {t("trials.startTime") || "Start"} *
+                      </Label>
+                      <Input
+                        id="student_start_time"
+                        type="time"
+                        value={formData.student_start_time}
+                        onChange={(e) => setFormData({ ...formData, student_start_time: e.target.value })}
+                        required
+                        className="bg-white/80 border-green-200 focus:border-green-400 focus:ring-green-400/20"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="student_end_time" className={cn("text-sm font-medium text-green-900 flex items-center gap-1.5", direction === "rtl" ? "text-right flex-row-reverse" : "text-left")}>
+                        <Clock className="w-4 h-4" />
+                        {t("trials.endTime") || "End"} *
+                      </Label>
+                      <Input
+                        id="student_end_time"
+                        type="time"
+                        value={formData.student_end_time}
+                        onChange={(e) => setFormData({ ...formData, student_end_time: e.target.value })}
+                        required
+                        className="bg-white/80 border-green-200 focus:border-green-400 focus:ring-green-400/20"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="student_end_time" className={cn("text-left rtl:text-right")}>
-                  {t("trials.studentEndTime") || "Student End Time"} *
-                </Label>
-                <Input
-                  id="student_end_time"
-                  type="time"
-                  value={formData.student_end_time}
-                  onChange={(e) => setFormData({ ...formData, student_end_time: e.target.value })}
-                  required
-                  dir="rtl"
-                  className={direction === "rtl" ? "text-right" : ""}
-                />
-              </div>
             </div>
-          </div>
 
-          {/* Teacher Time Section */}
-          <div className="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h3 className={cn("font-semibold text-blue-800", direction === "rtl" ? "text-right" : "text-left")}>
-              {t("trials.teacherTime") || "Teacher Time"} *
-            </h3>
-            <div className="space-y-2">
-              <Label htmlFor="teacher_date" className={cn("text-left rtl:text-right")}>
-                {t("trials.teacherDate") || "Teacher Date"} *
-              </Label>
-              <Input
-                id="teacher_date"
-                type="date"
-                value={formData.teacher_date}
-                onChange={(e) => setFormData({ ...formData, teacher_date: e.target.value })}
-                min={new Date().toISOString().split('T')[0]}
-                required
-                dir="rtl"
-                className={direction === "rtl" ? "text-right" : ""}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="teacher_start_time" className={cn("text-left rtl:text-right")}>
-                  {t("trials.teacherStartTime") || "Teacher Start Time"} *
-                </Label>
-                <Input
-                  id="teacher_start_time"
-                  type="time"
-                  value={formData.teacher_start_time}
-                  onChange={(e) => setFormData({ ...formData, teacher_start_time: e.target.value })}
-                  required
-                  dir="rtl"
-                  className={direction === "rtl" ? "text-right" : ""}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="teacher_end_time" className={cn("text-left rtl:text-right")}>
-                  {t("trials.teacherEndTime") || "Teacher End Time"} *
-                </Label>
-                <Input
-                  id="teacher_end_time"
-                  type="time"
-                  value={formData.teacher_end_time}
-                  onChange={(e) => setFormData({ ...formData, teacher_end_time: e.target.value })}
-                  required
-                  dir="rtl"
-                  className={direction === "rtl" ? "text-right" : ""}
-                />
+            {/* Teacher Time Section */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200/60 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200/20 rounded-full -mr-16 -mt-16"></div>
+              <div className="relative p-5 space-y-4">
+                <div className="flex items-center gap-3 pb-2 border-b border-blue-200/50">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <GraduationCap className="w-5 h-5 text-blue-700" />
+                  </div>
+                  <div>
+                    <h3 className={cn("font-semibold text-blue-900 text-base", direction === "rtl" ? "text-right" : "text-left")}>
+                      {t("trials.teacherTime") || "Teacher Time"}
+                    </h3>
+                    <p className="text-xs text-blue-700/70 mt-0.5">
+                      {t("trials.teacherTimezone") || "Teacher's local time"}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="teacher_date" className={cn("text-sm font-medium text-blue-900 flex items-center gap-1.5", direction === "rtl" ? "text-right flex-row-reverse" : "text-left")}>
+                      <Calendar className="w-4 h-4" />
+                      {t("trials.teacherDate") || "Date"} *
+                    </Label>
+                    <Input
+                      id="teacher_date"
+                      type="date"
+                      value={formData.teacher_date}
+                      onChange={(e) => setFormData({ ...formData, teacher_date: e.target.value })}
+                      min={new Date().toISOString().split('T')[0]}
+                      required
+                      className="bg-white/80 border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="teacher_start_time" className={cn("text-sm font-medium text-blue-900 flex items-center gap-1.5", direction === "rtl" ? "text-right flex-row-reverse" : "text-left")}>
+                        <Clock className="w-4 h-4" />
+                        {t("trials.startTime") || "Start"} *
+                      </Label>
+                      <Input
+                        id="teacher_start_time"
+                        type="time"
+                        value={formData.teacher_start_time}
+                        onChange={(e) => setFormData({ ...formData, teacher_start_time: e.target.value })}
+                        required
+                        className="bg-white/80 border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="teacher_end_time" className={cn("text-sm font-medium text-blue-900 flex items-center gap-1.5", direction === "rtl" ? "text-right flex-row-reverse" : "text-left")}>
+                        <Clock className="w-4 h-4" />
+                        {t("trials.endTime") || "End"} *
+                      </Label>
+                      <Input
+                        id="teacher_end_time"
+                        type="time"
+                        value={formData.teacher_end_time}
+                        onChange={(e) => setFormData({ ...formData, teacher_end_time: e.target.value })}
+                        required
+                        className="bg-white/80 border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
