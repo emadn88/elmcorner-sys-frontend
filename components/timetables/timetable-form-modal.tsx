@@ -621,7 +621,6 @@ export function TimetableFormModal({
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
           </div>
 
           {/* Teacher Availability */}
@@ -848,7 +847,6 @@ export function TimetableFormModal({
                 })}
               </div>
             )}
-          </div>
 
           {/* Timezones */}
           <div className="grid grid-cols-2 gap-4">
