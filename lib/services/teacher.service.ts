@@ -21,6 +21,7 @@ export interface TeacherDashboardResponse {
   stats: TeacherDashboardStats;
   today_classes: ClassInstance[];
   upcoming_classes: ClassInstance[];
+  attended_classes?: ClassInstance[];
 }
 
 export interface TeacherClassesResponse {
@@ -42,6 +43,25 @@ export class TeacherService {
     const response = await apiClient.get<TeacherDashboardResponse>(
       API_ENDPOINTS.TEACHER.DASHBOARD
     );
+    return response.data;
+  }
+
+  /**
+   * Get monthly rate details (punctuality or report submission)
+   */
+  static async getMonthlyRateDetails(params: {
+    type: 'punctuality' | 'report_submission';
+    month?: number;
+    year?: number;
+  }): Promise<any> {
+    const response = await apiClient.get(
+      API_ENDPOINTS.TEACHER.MONTHLY_RATE_DETAILS,
+      { params }
+    );
+    // apiClient.get returns response.data from axios
+    // Laravel returns { status: 'success', data: {...} }
+    // So response is { status: 'success', data: {...} }
+    // Return response.data which contains the actual rate data
     return response.data;
   }
 
@@ -134,6 +154,37 @@ export class TeacherService {
   static async cancelClass(id: number, reason: string): Promise<ClassInstance> {
     const response = await apiClient.post<ClassInstance>(
       API_ENDPOINTS.TEACHER.CLASS_CANCEL(id),
+      { reason }
+    );
+    return response.data;
+  }
+
+  /**
+   * Submit class report
+   */
+  static async submitClassReport(
+    id: number,
+    data: {
+      status: "attended" | "cancelled";
+      student_evaluation?: string;
+      class_report?: string;
+      notes?: string;
+      send_whatsapp: boolean;
+    }
+  ): Promise<ClassInstance> {
+    const response = await apiClient.post<ClassInstance>(
+      API_ENDPOINTS.TEACHER.CLASS_REPORT(id),
+      data
+    );
+    return response.data;
+  }
+
+  /**
+   * Request class cancellation (creates admin notification)
+   */
+  static async requestClassCancellation(id: number, reason: string): Promise<ClassInstance> {
+    const response = await apiClient.post<ClassInstance>(
+      API_ENDPOINTS.TEACHER.CLASS_CANCEL_REQUEST(id),
       { reason }
     );
     return response.data;
@@ -592,5 +643,24 @@ export class TeacherService {
     }
 
     throw new Error("Failed to find available teachers");
+  }
+
+  /**
+   * Get teacher rate details (Admin)
+   */
+  static async getTeacherRateDetails(
+    id: number,
+    filters?: {
+      status?: string;
+      date_from?: string;
+      date_to?: string;
+      rate_type?: 'all' | 'punctuality' | 'report_submission';
+    }
+  ): Promise<any> {
+    const response = await apiClient.get(
+      API_ENDPOINTS.ADMIN.TEACHER_RATE_DETAILS(id),
+      { params: filters }
+    );
+    return response.data;
   }
 }

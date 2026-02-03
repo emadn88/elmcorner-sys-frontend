@@ -6,6 +6,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { PackageService } from "@/lib/services/package.service";
+import { TeacherService } from "@/lib/services/teacher.service";
+import { NotificationService } from "@/lib/services/notification.service";
 import {
   Home,
   BookOpen,
@@ -44,7 +46,15 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Navigation structure - labels will be translated in component
-const getNavGroups = (t: (key: string) => string, packageNotificationCount?: number, userRole?: string): NavGroup[] => {
+const getNavGroups = (
+  t: (key: string) => string, 
+  packageNotificationCount?: number, 
+  userRole?: string,
+  todayClassesCount?: number,
+  pendingClassesCount?: number,
+  todayTrialsCount?: number,
+  cancellationRequestCount?: number
+): NavGroup[] => {
   // Teacher-specific navigation
   if (userRole === 'teacher') {
     return [
@@ -57,9 +67,21 @@ const getNavGroups = (t: (key: string) => string, packageNotificationCount?: num
       {
         title: t("sidebar.teaching") || "Teaching",
         items: [
-          { label: t("sidebar.myClasses") || "My Classes", href: "/dashboard/teacher/classes", icon: CalendarDays, role: "teacher" },
+          { 
+            label: t("sidebar.myClasses") || "My Classes", 
+            href: "/dashboard/teacher/classes", 
+            icon: CalendarDays, 
+            role: "teacher",
+            badge: pendingClassesCount && pendingClassesCount > 0 ? pendingClassesCount : undefined,
+          },
           { label: t("sidebar.myStudents") || "My Students", href: "/dashboard/teacher/students", icon: Users, role: "teacher" },
-          { label: t("sidebar.trials") || "Trials", href: "/dashboard/teacher/trials", icon: FlaskConical, role: "teacher" },
+          { 
+            label: t("sidebar.trials") || "Trials", 
+            href: "/dashboard/teacher/trials", 
+            icon: FlaskConical, 
+            role: "teacher",
+            badge: todayTrialsCount && todayTrialsCount > 0 ? todayTrialsCount : undefined,
+          },
           { label: t("sidebar.availability") || "Availability", href: "/dashboard/teacher/availability", icon: Clock, role: "teacher" },
           { label: t("sidebar.calendar") || "Calendar", href: "/dashboard/teacher/calendar", icon: CalendarDays, role: "teacher" },
         ],
@@ -67,7 +89,7 @@ const getNavGroups = (t: (key: string) => string, packageNotificationCount?: num
     ];
   }
 
-  // Admin navigation
+  // Admin navigation - reordered as requested
   return [
   {
     title: t("sidebar.main"),
@@ -76,13 +98,42 @@ const getNavGroups = (t: (key: string) => string, packageNotificationCount?: num
     ],
   },
   {
-    title: t("sidebar.people"),
+    title: t("sidebar.mainFeatures") || "Main Features",
     items: [
       {
         label: t("sidebar.students"),
         href: "/dashboard/students",
         icon: Users,
         permission: "view_students",
+      },
+      {
+        label: t("sidebar.teachers"),
+        href: "/dashboard/teachers",
+        icon: UserCheck,
+        permission: "view_teachers",
+      },
+      {
+        label: t("sidebar.trialClasses"),
+        href: "/dashboard/trial-classes",
+        icon: FlaskConical,
+        permission: "view_trials",
+      },
+      { label: t("sidebar.classes") || "Classes", href: "/dashboard/classes", icon: CalendarDays, permission: "view_timetables" },
+      { label: t("sidebar.timetables"), href: "/dashboard/timetables", icon: Clock, permission: "view_timetables" },
+      {
+        label: t("sidebar.packages"),
+        href: "/dashboard/packages",
+        icon: Package,
+        permission: "view_packages",
+      },
+      {
+        label: t("sidebar.notifications") || "Notifications",
+        href: "/dashboard/notifications",
+        icon: Bell,
+        permission: "view_students",
+        badge: ((packageNotificationCount || 0) + (cancellationRequestCount || 0)) > 0 
+          ? ((packageNotificationCount || 0) + (cancellationRequestCount || 0)) 
+          : undefined,
       },
       {
         label: t("sidebar.families"),
@@ -95,12 +146,6 @@ const getNavGroups = (t: (key: string) => string, packageNotificationCount?: num
         href: "/dashboard/leads",
         icon: Target,
         permission: "view_students",
-      },
-      {
-        label: t("sidebar.teachers"),
-        href: "/dashboard/teachers",
-        icon: UserCheck,
-        permission: "view_teachers",
       },
       {
         label: t("sidebar.teacherPanel"),
@@ -125,33 +170,12 @@ const getNavGroups = (t: (key: string) => string, packageNotificationCount?: num
         icon: Calendar,
         permission: "view_timetables",
       },
-      {
-        label: t("sidebar.trialClasses"),
-        href: "/dashboard/trial-classes",
-        icon: FlaskConical,
-        permission: "view_trials",
-      },
+      { label: t("sidebar.calendy") || "Calendy", href: "/dashboard/calendy", icon: CalendarClock, permission: "view_timetables" },
     ],
   },
   {
     title: t("sidebar.academic"),
     items: [
-      { label: t("sidebar.calendy") || "Calendy", href: "/dashboard/calendy", icon: CalendarClock, permission: "view_timetables" },
-      { label: t("sidebar.classes") || "Classes", href: "/dashboard/classes", icon: CalendarDays, permission: "view_timetables" },
-      { label: t("sidebar.timetables"), href: "/dashboard/timetables", icon: Clock, permission: "view_timetables" },
-      {
-        label: t("sidebar.packages"),
-        href: "/dashboard/packages",
-        icon: Package,
-        permission: "view_packages",
-      },
-      {
-        label: t("sidebar.notifications") || "Notifications",
-        href: "/dashboard/notifications",
-        icon: Bell,
-        permission: "view_students",
-        badge: packageNotificationCount > 0 ? packageNotificationCount : undefined,
-      },
       {
         label: t("sidebar.billing"),
         href: "/dashboard/billing",
@@ -407,16 +431,30 @@ export function Sidebar() {
   const { direction, t } = useLanguage();
   const { user } = useAuth();
   const [packageNotificationCount, setPackageNotificationCount] = useState<number>(0);
+  const [cancellationRequestCount, setCancellationRequestCount] = useState<number>(0);
+  const [todayClassesCount, setTodayClassesCount] = useState<number>(0);
+  const [pendingClassesCount, setPendingClassesCount] = useState<number>(0);
+  const [todayTrialsCount, setTodayTrialsCount] = useState<number>(0);
 
-  // Fetch package notification count
+  // Fetch package notification count (for admin)
   useEffect(() => {
     const fetchNotificationCount = async () => {
       try {
-        const count = await PackageService.getUnnotifiedCount();
-        setPackageNotificationCount(count);
+        const [packageCount, cancellations] = await Promise.all([
+          PackageService.getUnnotifiedCount().catch(() => 0),
+          NotificationService.getNotifications("class_cancellations").catch(() => [])
+        ]);
+        
+        setPackageNotificationCount(packageCount);
+        // Count only pending cancellation requests
+        const pendingCancellations = cancellations.filter(
+          (item) => item.type === "class_cancellation" && item.status === "pending"
+        ).length;
+        setCancellationRequestCount(pendingCancellations);
       } catch (error) {
-        console.error("Failed to fetch package notification count:", error);
+        console.error("Failed to fetch notification count:", error);
         setPackageNotificationCount(0);
+        setCancellationRequestCount(0);
       }
     };
 
@@ -428,7 +466,59 @@ export function Sidebar() {
       // Refresh every 30 seconds
       const interval = setInterval(fetchNotificationCount, 30000);
       
-      return () => clearInterval(interval);
+      // Listen for custom event to refresh notification count
+      window.addEventListener('refreshNotificationCount', fetchNotificationCount);
+      
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('refreshNotificationCount', fetchNotificationCount);
+      };
+    }
+  }, [pathname, user]);
+
+  // Fetch today's classes and this week's trials count (for teachers)
+  useEffect(() => {
+    const fetchTeacherNotifications = async () => {
+      try {
+        // Get today's date and end of week (7 days from today) in YYYY-MM-DD format
+        const today = new Date();
+        const weekEnd = new Date(today);
+        weekEnd.setDate(today.getDate() + 7);
+        const todayStr = today.toISOString().split('T')[0];
+        const weekEndStr = weekEnd.toISOString().split('T')[0];
+        
+        // Fetch dashboard stats and this week's trials in parallel
+        const [dashboardData, trialsData] = await Promise.all([
+          TeacherService.getDashboardStats().catch(() => ({ stats: { today_classes_count: 0, pending_classes_count: 0 }, today_classes: [] })),
+          TeacherService.getTrials({ date_from: todayStr, date_to: weekEndStr }).catch(() => ({ trials: [] }))
+        ]);
+        
+        setTodayClassesCount(dashboardData.stats?.today_classes_count || 0);
+        setPendingClassesCount(dashboardData.stats?.pending_classes_count || 0);
+        setTodayTrialsCount(trialsData.trials?.length || 0);
+      } catch (error) {
+        console.error("Failed to fetch teacher notification counts:", error);
+        setTodayClassesCount(0);
+        setPendingClassesCount(0);
+        setTodayTrialsCount(0);
+      }
+    };
+
+    // Only fetch if user is a teacher
+    if (user?.role === 'teacher') {
+      // Fetch on mount and when pathname changes (user navigates)
+      fetchTeacherNotifications();
+      
+      // Refresh every 30 seconds
+      const interval = setInterval(fetchTeacherNotifications, 30000);
+      
+      // Listen for custom event to refresh notification count
+      window.addEventListener('refreshTeacherNotifications', fetchTeacherNotifications);
+      
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('refreshTeacherNotifications', fetchTeacherNotifications);
+      };
     }
   }, [pathname, user]);
 
@@ -446,7 +536,7 @@ export function Sidebar() {
   };
 
   // Get and filter nav groups
-  const allNavGroups = getNavGroups(t, packageNotificationCount, user?.role);
+  const allNavGroups = getNavGroups(t, packageNotificationCount, user?.role, todayClassesCount, pendingClassesCount, todayTrialsCount, cancellationRequestCount);
   const navGroups = allNavGroups
     .map((group) => ({
       ...group,

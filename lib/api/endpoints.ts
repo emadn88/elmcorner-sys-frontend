@@ -27,6 +27,8 @@ export const API_ENDPOINTS = {
     TEACHER_MONTHLY_STATS: (id: number) => `/admin/teachers/${id}/monthly-stats`,
     TEACHER_WEEKLY_SCHEDULE: (id: number) => `/admin/teachers/${id}/weekly-schedule`,
     TEACHER_CREDENTIALS: (id: number) => `/admin/teachers/${id}/credentials`,
+    TEACHER_RATE_DETAILS: (id: number) => `/admin/teachers/${id}/rate-details`,
+    TEACHER_RATE_DETAILS_PDF: (id: number) => `/admin/teachers/${id}/rate-details/pdf`,
     TEACHER_SEND_CREDENTIALS_WHATSAPP: (id: number) => `/admin/teachers/${id}/send-credentials-whatsapp`,
     TEACHERS_AVAILABLE: `/admin/teachers/available`,
     
@@ -45,6 +47,7 @@ export const API_ENDPOINTS = {
     
     // Classes
     CLASSES: `/admin/classes`,
+    CLASSES_EXPORT_PDF: `/admin/classes/export/pdf`,
     CLASS: (id: number) => `/admin/classes/${id}`,
     
     // Packages
@@ -57,6 +60,8 @@ export const API_ENDPOINTS = {
     PACKAGE_PDF: (id: number) => `/admin/packages/${id}/pdf`,
     PACKAGE_CLASSES: (id: number) => `/admin/packages/${id}/classes`,
     PACKAGE_REACTIVATE: (id: number) => `/admin/packages/${id}/reactivate`,
+    PACKAGE_MARK_PAID: (id: number) => `/admin/packages/${id}/mark-paid`,
+    PACKAGE_NOTIFICATION_HISTORY: (id: number) => `/admin/packages/${id}/notification-history`,
     PACKAGES_BULK_NOTIFY: `/admin/packages/bulk-notify`,
     
     // Trial Classes
@@ -154,6 +159,7 @@ export const API_ENDPOINTS = {
   // Teacher
   TEACHER: {
     DASHBOARD: `/teacher/dashboard`,
+    MONTHLY_RATE_DETAILS: `/teacher/monthly-rate-details`,
     CLASSES: `/teacher/classes`,
     CLASS: (id: number) => `/teacher/classes/${id}`,
     CLASS_STATUS: (id: number) => `/teacher/classes/${id}/status`,
@@ -161,6 +167,8 @@ export const API_ENDPOINTS = {
     CLASS_END: (id: number) => `/teacher/classes/${id}/end`,
     CLASS_UPDATE: (id: number) => `/teacher/classes/${id}`,
     CLASS_CANCEL: (id: number) => `/teacher/classes/${id}/cancel`,
+    CLASS_REPORT: (id: number) => `/teacher/classes/${id}/report`,
+    CLASS_CANCEL_REQUEST: (id: number) => `/teacher/classes/${id}/cancel-request`,
     STUDENTS: `/teacher/students`,
     DUTIES: `/teacher/duties`,
     PROFILE: `/teacher/profile`,
@@ -176,6 +184,7 @@ export const API_ENDPOINTS = {
   // Admin Notifications
   ADMIN_NOTIFICATIONS: {
     LIST: `/admin/notifications`,
+    ALL_CANCELLATION_REQUESTS: `/admin/notifications/class-cancellations/all`,
     APPROVE_CANCELLATION: (id: number) => `/admin/notifications/class-cancellation/${id}/approve`,
     REJECT_CANCELLATION: (id: number) => `/admin/notifications/class-cancellation/${id}/reject`,
   },

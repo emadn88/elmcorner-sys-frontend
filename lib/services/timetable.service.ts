@@ -143,4 +143,17 @@ export class TimetableService {
 
     throw new Error(response.message || "Failed to resume timetable");
   }
+
+  /**
+   * Delete all pending classes for a timetable
+   */
+  static async deleteAllPendingClasses(id: number): Promise<any> {
+    const response = await apiClient.delete(`${API_ENDPOINTS.ADMIN.TIMETABLE(id)}/pending-classes`);
+
+    if (response.status === "success") {
+      return response.data;
+    }
+
+    throw new Error(response.message || "Failed to delete pending classes");
+  }
 }

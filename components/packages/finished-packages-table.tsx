@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MessageSquare, FileText, Plus, Download, Copy, Check } from "lucide-react";
+import { MessageSquare, FileText, CheckCircle2, Download, Copy, Check } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -24,7 +24,7 @@ interface FinishedPackagesTableProps {
   onSelectAll: (selected: boolean) => void;
   onSendWhatsApp: (pkg: FinishedPackage) => void;
   onViewBills: (pkg: FinishedPackage) => void;
-  onCreatePackage: (pkg: FinishedPackage) => void;
+  onMarkAsPaid: (pkg: FinishedPackage) => void;
   onDownloadPdf: (pkg: FinishedPackage) => void;
 }
 
@@ -35,7 +35,7 @@ export function FinishedPackagesTable({
   onSelectAll,
   onSendWhatsApp,
   onViewBills,
-  onCreatePackage,
+  onMarkAsPaid,
   onDownloadPdf,
 }: FinishedPackagesTableProps) {
   const { t, direction } = useLanguage();
@@ -157,7 +157,20 @@ export function FinishedPackagesTable({
                   </TableCell>
                   <TableCell>
                     <div className="text-sm">
-                      <div>{formatDateTime(pkg.last_notification_sent)}</div>
+                      {pkg.last_notification_sent ? (
+                        <button
+                          onClick={() => {
+                            // This will be handled by parent component
+                            const event = new CustomEvent('openNotificationHistory', { detail: pkg.id });
+                            window.dispatchEvent(event);
+                          }}
+                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline cursor-pointer"
+                        >
+                          {formatDateTime(pkg.last_notification_sent)}
+                        </button>
+                      ) : (
+                        <div>{formatDateTime(pkg.last_notification_sent)}</div>
+                      )}
                       {pkg.notification_count && (
                         <div className="text-xs text-gray-400">
                           {pkg.notification_count} {t("packages.notificationCount")}
@@ -174,7 +187,14 @@ export function FinishedPackagesTable({
                         className="text-xs"
                       >
                         <MessageSquare className="h-3 w-3 mr-1" />
-                        {t("packages.sendWhatsApp")}
+                        {pkg.notification_count && pkg.notification_count > 0
+                          ? t("packages.remindStudent") || "Remind the student"
+                          : t("packages.sendWhatsApp")}
+                        {pkg.notification_count && pkg.notification_count > 0 && (
+                          <span className="ml-1 px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded text-[10px] font-bold">
+                            {pkg.notification_count}
+                          </span>
+                        )}
                       </Button>
                       <Button
                         variant="outline"
@@ -188,11 +208,12 @@ export function FinishedPackagesTable({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => onCreatePackage(pkg)}
-                        className="text-xs"
+                        onClick={() => onMarkAsPaid(pkg)}
+                        className="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-700"
+                        disabled={pkg.bills_summary?.unpaid_amount === 0}
                       >
-                        <Plus className="h-3 w-3 mr-1" />
-                        {t("packages.createNewPackage")}
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        {t("packages.markAsPaid")}
                       </Button>
                       <Button
                         variant="outline"

@@ -9,7 +9,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { TeacherService } from "@/lib/services/teacher.service";
 import { TeacherClass } from "@/lib/api/types";
 import { format } from "date-fns";
-import { ClassDetailsModal } from "@/components/teacher/class-details-modal";
+import { ClassReportModal } from "@/components/teacher/class-report-modal";
 import { ClassesTable } from "@/components/teacher/classes-table";
 import { ClassesFilters } from "@/components/teacher/classes-filters";
 
@@ -63,8 +63,17 @@ export default function TeacherClassesPage() {
       setError(null);
       const filters: any = {};
       
-      if (dateFrom) filters.date_from = dateFrom;
-      if (dateTo) filters.date_to = dateTo;
+      // Use filter parameter: 'past' for past classes, default is 'today'
+      const today = format(new Date(), "yyyy-MM-dd");
+      const isPastFilter = dateFrom < today || dateTo < today;
+      
+      if (isPastFilter) {
+        filters.filter = 'past';
+      } else {
+        // Default: show today's classes
+        filters.filter = 'today';
+      }
+      
       if (statusFilter !== "all") filters.status = statusFilter;
 
       const response = await TeacherService.getClasses(filters);
@@ -88,18 +97,25 @@ export default function TeacherClassesPage() {
 
   const handleEnterMeet = async (classItem: TeacherClass) => {
     try {
-      // For testing: redirect to Google by default
-      window.open("https://www.google.com", "_blank");
-      
       // Call API to mark meet as entered (this will change status to pending)
       const result = await TeacherService.enterMeet(classItem.id);
+      
+      // Open the teacher's Zoom meet link in a new tab
       if (result.meet_link) {
-        // Already opened Google above, but in production use: window.open(result.meet_link, "_blank");
+        window.open(result.meet_link, "_blank", "noopener,noreferrer");
+      } else {
+        // Fallback: try to use meet_link from classItem if available
+        if (classItem.meet_link) {
+          window.open(classItem.meet_link, "_blank", "noopener,noreferrer");
+        } else {
+          alert(t("teacher.noMeetLink") || "Meet link not available");
+        }
       }
-      // Refresh classes to update the UI (meet button will hide, edit button will show)
+      
+      // Refresh classes to update the UI (meet button will hide, write report button will be enabled)
       await fetchClasses();
     } catch (err: any) {
-      alert(err.message || "Failed to enter meet");
+      alert(err.message || t("teacher.failedToEnterMeet") || "Failed to enter meet");
     }
   };
 
@@ -113,6 +129,11 @@ export default function TeacherClassesPage() {
   };
 
   const handleViewDetails = (classItem: TeacherClass) => {
+    setSelectedClass(classItem);
+    setIsModalOpen(true);
+  };
+
+  const handleWriteReport = (classItem: TeacherClass) => {
     setSelectedClass(classItem);
     setIsModalOpen(true);
   };
@@ -147,7 +168,9 @@ export default function TeacherClassesPage() {
       >
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {t("teacher.statistics.totalClasses") || "Total"}
+            </CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -156,7 +179,9 @@ export default function TeacherClassesPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Attended</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {t("teacher.statistics.attended") || "Attended"}
+            </CardTitle>
             <CheckCircle2 className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
@@ -165,7 +190,9 @@ export default function TeacherClassesPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {t("teacher.statistics.pending") || "Pending"}
+            </CardTitle>
             <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
@@ -174,7 +201,9 @@ export default function TeacherClassesPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {t("teacher.attendanceRate") || "Attendance Rate"}
+            </CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -210,12 +239,13 @@ export default function TeacherClassesPage() {
           onEnterMeet={handleEnterMeet}
           onEndClass={handleEndClass}
           onViewDetails={handleViewDetails}
+          onWriteReport={handleWriteReport}
           isLoading={isLoading}
         />
       </motion.div>
 
       {selectedClass && (
-        <ClassDetailsModal
+        <ClassReportModal
           open={isModalOpen}
           onOpenChange={setIsModalOpen}
           classItem={selectedClass}

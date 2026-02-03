@@ -118,4 +118,37 @@ export class ClassService {
 
     throw new Error(response.message || "Failed to delete future classes");
   }
+
+  /**
+   * Download classes PDF
+   */
+  static async downloadPdf(filters: ClassFilters = {}): Promise<Blob> {
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    
+    const params = new URLSearchParams();
+    if (filters.start_date) params.append('start_date', filters.start_date);
+    if (filters.end_date) params.append('end_date', filters.end_date);
+    if (filters.student_id) params.append('student_id', filters.student_id.toString());
+    if (filters.teacher_id) params.append('teacher_id', filters.teacher_id.toString());
+    if (filters.course_id) params.append('course_id', filters.course_id.toString());
+    if (filters.status) params.append('status', filters.status);
+
+    const url = `${API_BASE_URL}${API_ENDPOINTS.ADMIN.CLASSES_EXPORT_PDF}?${params.toString()}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/pdf',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to download PDF: ${response.status} ${errorText}`);
+    }
+
+    return response.blob();
+  }
 }

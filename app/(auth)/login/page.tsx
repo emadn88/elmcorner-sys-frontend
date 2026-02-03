@@ -9,14 +9,10 @@ import {
   LogIn, 
   Eye, 
   EyeOff, 
-  Building2, 
   AlertCircle, 
-  Shield,
-  Users,
-  TrendingUp,
-  CheckCircle2,
   Loader2
 } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -71,12 +67,12 @@ export default function LoginPage() {
 
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-gradient-to-br from-slate-700 via-slate-600 to-slate-700">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* Gradient Orbs */}
         <motion.div
-          className="absolute top-0 -left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl"
+          className="absolute top-0 -left-1/4 w-96 h-96 bg-purple-400/25 rounded-full blur-3xl"
           animate={{
             x: [0, 100, 0],
             y: [0, 50, 0],
@@ -89,7 +85,7 @@ export default function LoginPage() {
           }}
         />
         <motion.div
-          className="absolute bottom-0 -right-1/4 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl"
+          className="absolute bottom-0 -right-1/4 w-96 h-96 bg-indigo-400/25 rounded-full blur-3xl"
           animate={{
             x: [0, -100, 0],
             y: [0, -50, 0],
@@ -103,13 +99,13 @@ export default function LoginPage() {
         />
         
         {/* Grid Pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808015_1px,transparent_1px),linear-gradient(to_bottom,#80808015_1px,transparent_1px)] bg-[size:24px_24px]" />
         
         {/* Animated Lines */}
         <motion.div
-          className="absolute top-1/4 left-0 w-full h-px bg-gradient-to-r from-transparent via-purple-500/30 to-transparent"
+          className="absolute top-1/4 left-0 w-full h-px bg-gradient-to-r from-transparent via-purple-400/25 to-transparent"
           animate={{
-            opacity: [0.3, 0.6, 0.3],
+            opacity: [0.3, 0.5, 0.3],
             scaleX: [0.8, 1, 0.8],
           }}
           transition={{
@@ -119,9 +115,9 @@ export default function LoginPage() {
           }}
         />
         <motion.div
-          className="absolute bottom-1/4 left-0 w-full h-px bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent"
+          className="absolute bottom-1/4 left-0 w-full h-px bg-gradient-to-r from-transparent via-indigo-400/25 to-transparent"
           animate={{
-            opacity: [0.3, 0.6, 0.3],
+            opacity: [0.3, 0.5, 0.3],
             scaleX: [0.8, 1, 0.8],
           }}
           transition={{
@@ -144,17 +140,23 @@ export default function LoginPage() {
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2, duration: 0.5 }}
-          className="text-center mb-8"
+          className="flex flex-col items-center justify-center mb-8"
         >
           <motion.div
-            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 mb-4 shadow-2xl shadow-purple-500/30 relative overflow-hidden group"
+            className="flex items-center justify-center w-32 h-32 rounded-2xl bg-white/20 backdrop-blur-sm mb-6 shadow-2xl shadow-purple-500/20 relative overflow-hidden group mx-auto"
             whileHover={{ scale: 1.05 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
-            <Building2 className="h-8 w-8 text-white relative z-10" />
+            <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent" />
+            <Image
+              src="/logo.png"
+              alt="ElmCorner Logo"
+              width={96}
+              height={96}
+              className="relative z-10 object-contain p-3"
+            />
             <motion.div
-              className="absolute inset-0 bg-gradient-to-br from-purple-400/50 to-indigo-400/50"
+              className="absolute inset-0 bg-gradient-to-br from-purple-400/20 to-indigo-400/20"
               animate={{
                 opacity: [0.3, 0.6, 0.3],
               }}
@@ -165,12 +167,16 @@ export default function LoginPage() {
               }}
             />
           </motion.div>
-          <h1 className="text-3xl font-bold text-white mb-2 text-center">
-            {t("auth.welcomeBack")}
-          </h1>
-          <p className="text-slate-400 text-sm text-center">
-            {t("auth.signInToContinue")}
-          </p>
+          <div className="w-full flex justify-center">
+            <h1 className="text-3xl font-bold text-white mb-2 text-center">
+              {t("auth.welcomeBack")}
+            </h1>
+          </div>
+          <div className="w-full flex justify-center">
+            <p className="text-slate-300 text-sm text-center">
+              {t("auth.signInToContinue")}
+            </p>
+          </div>
         </motion.div>
 
         {/* Login Card */}

@@ -11,6 +11,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/a
 class ApiClient {
   private client: AxiosInstance;
   private refreshTokenPromise: Promise<string> | null = null;
+  private refreshTimer: NodeJS.Timeout | null = null;
 
   constructor() {
     this.client = axios.create({
@@ -23,6 +24,7 @@ class ApiClient {
     });
 
     this.setupInterceptors();
+    this.setupProactiveRefresh();
   }
 
   private setupInterceptors(): void {
@@ -103,6 +105,8 @@ class ApiClient {
 
         const newToken = response.data.data.access_token;
         this.setAccessToken(newToken);
+        // Setup proactive refresh with new token
+        this.setupProactiveRefresh();
 
         return newToken;
       } catch (error) {
@@ -187,12 +191,62 @@ class ApiClient {
     if (typeof window === 'undefined') return;
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    // Clear refresh timer
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
   }
 
   public setTokens(accessToken: string, refreshToken?: string): void {
     this.setAccessToken(accessToken);
     if (refreshToken) {
       this.setRefreshToken(refreshToken);
+    }
+    // Setup proactive refresh when tokens are set
+    this.setupProactiveRefresh();
+  }
+
+  /**
+   * Setup proactive token refresh to refresh token before it expires
+   * Refreshes token 5 minutes before expiration
+   */
+  private setupProactiveRefresh(): void {
+    // Clear existing timer
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+
+    if (typeof window === 'undefined') return;
+
+    const token = this.getAccessToken();
+    if (!token) return;
+
+    try {
+      // Decode JWT token to get expiration time
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const expirationTime = payload.exp * 1000; // Convert to milliseconds
+      const now = Date.now();
+      const timeUntilExpiration = expirationTime - now;
+      
+      // Refresh 5 minutes before expiration (or immediately if less than 5 minutes left)
+      const refreshDelay = Math.max(timeUntilExpiration - (5 * 60 * 1000), 60000); // At least 1 minute
+
+      if (refreshDelay > 0 && timeUntilExpiration > 0) {
+        this.refreshTimer = setTimeout(async () => {
+          try {
+            await this.refreshAccessToken();
+            // Setup next refresh after successful refresh
+            this.setupProactiveRefresh();
+          } catch (error) {
+            console.error('Proactive token refresh failed:', error);
+            // If refresh fails, the interceptor will handle it on next request
+          }
+        }, refreshDelay);
+      }
+    } catch (error) {
+      console.error('Failed to setup proactive refresh:', error);
     }
   }
 

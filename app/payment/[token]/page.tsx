@@ -3,34 +3,20 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   CreditCard,
   Download,
-  FileText,
   CheckCircle,
   XCircle,
   Loader2,
+  Building2,
+  Calendar,
+  Clock,
+  Star,
 } from "lucide-react";
 import { BillingService } from "@/lib/services/billing.service";
 import { BillDetails } from "@/lib/api/types";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
 
 export default function PaymentPage() {
   const params = useParams();
@@ -40,8 +26,7 @@ export default function PaymentPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<string>("");
-  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   useEffect(() => {
@@ -63,21 +48,40 @@ export default function PaymentPage() {
     }
   };
 
-  const handleDownloadPDF = async () => {
+  const handleDownloadPDF = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     if (!token) return;
 
     try {
+      setIsDownloadingPDF(true);
+      setError(null);
+      
       const blob = await BillingService.downloadPublicPDF(token);
+      
+      // Create a more descriptive filename
+      const studentName = bill?.student?.name || "student";
+      const sanitizedName = studentName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const billId = bill?.id || "unknown";
+      const date = new Date().toISOString().split('T')[0];
+      const filename = `bill_${sanitizedName}_${billId}_${date}.pdf`;
+      
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `bill-${bill?.id || "unknown"}.pdf`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err: any) {
-      setError(err.message || "Failed to download PDF");
+      setError(err.message || "Failed to download PDF. Please try again.");
+      console.error("PDF download error:", err);
+    } finally {
+      setIsDownloadingPDF(false);
     }
   };
 
@@ -85,23 +89,6 @@ export default function PaymentPage() {
     if (hours === null || hours === undefined) return "0.00";
     const numHours = typeof hours === 'number' ? hours : parseFloat(String(hours || '0'));
     return isNaN(numHours) ? "0.00" : numHours.toFixed(2);
-  };
-
-  const handleProcessPayment = async () => {
-    if (!token || !paymentMethod) return;
-
-    try {
-      setIsProcessing(true);
-      await BillingService.processPayment(token, paymentMethod);
-      setPaymentSuccess(true);
-      setShowPaymentDialog(false);
-      // Reload bill to get updated status
-      await loadBill();
-    } catch (err: any) {
-      setError(err.message || "Failed to process payment");
-    } finally {
-      setIsProcessing(false);
-    }
   };
 
   const formatCurrency = (amount: number, currency: string) => {
@@ -112,38 +99,87 @@ export default function PaymentPage() {
     }).format(amount);
   };
 
-  // Calculate start and end dates from classes or bill_date
-  const getBillPeriod = () => {
+  const getBillingPeriod = () => {
     if (bill?.classes && bill.classes.length > 0) {
-      const dates = bill.classes.map((c: any) => new Date(c.date)).sort((a, b) => a.getTime() - b.getTime());
+      // Get dates from classes and sort them
+      const dates = bill.classes
+        .map((c: any) => new Date(c.date))
+        .sort((a: Date, b: Date) => a.getTime() - b.getTime());
+      
       const startDate = dates[0];
       const endDate = dates[dates.length - 1];
-      return { startDate, endDate };
+      
+      // Format dates as MM/DD/YYYY
+      const formatDate = (date: Date) => {
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        const year = date.getFullYear();
+        return `${month}/${day}/${year}`;
+      };
+      
+      return {
+        from: formatDate(startDate),
+        to: formatDate(endDate),
+      };
     } else if (bill?.bill_date) {
+      // Fallback to bill_date if no classes
       const billDate = new Date(bill.bill_date);
+      const month = (billDate.getMonth() + 1).toString().padStart(2, '0');
+      const day = billDate.getDate().toString().padStart(2, '0');
       const year = billDate.getFullYear();
-      const month = billDate.getMonth();
-      const startDate = new Date(year, month, 1);
-      const endDate = new Date(year, month + 1, 0);
-      return { startDate, endDate };
+      const formattedDate = `${month}/${day}/${year}`;
+      return {
+        from: formattedDate,
+        to: formattedDate,
+      };
     }
     return null;
   };
 
-  const getMonthName = (date: Date) => {
-    return format(date, "MMMM yyyy");
+  const getTotalClasses = () => {
+    if (bill?.classes && bill.classes.length > 0) {
+      return bill.classes.length;
+    }
+    return 1; // Default to 1 if no classes array
+  };
+
+  const handlePaymentMethodSelect = async (method: string) => {
+    if (!token) return;
+
+    try {
+      setIsProcessing(true);
+      await BillingService.processPayment(token, method);
+      setPaymentSuccess(true);
+      // Reload bill to get updated status
+      await loadBill();
+    } catch (err: any) {
+      setError(err.message || "Failed to process payment");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 relative overflow-hidden font-sans" dir="ltr">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-5">
+          <svg className="absolute top-0 left-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="loading-pattern" x="0" y="0" width="200" height="200" patternUnits="userSpaceOnUse">
+                <circle cx="100" cy="100" r="40" fill="none" stroke="currentColor" strokeWidth="1" className="text-emerald-600"/>
+                <polygon points="100,60 120,80 160,80 130,100 145,140 100,120 55,140 70,100 40,80 80,80" 
+                         fill="none" 
+                         stroke="currentColor" 
+                         strokeWidth="1"
+                         className="text-blue-600"/>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#loading-pattern)" />
+          </svg>
         </div>
         <div className="relative z-10 text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-700 font-medium text-lg">
+          <Loader2 className="h-12 w-12 animate-spin text-emerald-600 mx-auto mb-4" />
+          <p className="text-gray-700 font-semibold text-lg" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
             Loading bill information...
           </p>
         </div>
@@ -153,21 +189,27 @@ export default function PaymentPage() {
 
   if (error && !bill) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 relative overflow-hidden font-sans" dir="ltr">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-5">
+          <svg className="absolute top-0 left-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="error-pattern" x="0" y="0" width="200" height="200" patternUnits="userSpaceOnUse">
+                <circle cx="100" cy="100" r="40" fill="none" stroke="currentColor" strokeWidth="1" className="text-red-600"/>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#error-pattern)" />
+          </svg>
         </div>
-        <Card className="max-w-md w-full relative z-10 border-0 shadow-2xl bg-white/90 backdrop-blur-sm">
-          <CardContent className="pt-6">
+        <Card className="max-w-md w-full relative z-10 border-0 shadow-2xl bg-white/95 backdrop-blur-sm rounded-2xl">
+          <CardContent className="pt-8 pb-8 px-8">
             <div className="text-center">
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <XCircle className="h-8 w-8 text-red-500" />
               </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">
+              <h2 className="text-xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
                 Error
               </h2>
-              <p className="text-gray-600">{error}</p>
+              <p className="text-gray-600" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>{error}</p>
             </div>
           </CardContent>
         </Card>
@@ -179,51 +221,258 @@ export default function PaymentPage() {
     return null;
   }
 
-  const billPeriod = getBillPeriod();
+  const billingPeriod = getBillingPeriod();
+  const studentName = bill.student?.name || "Student";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 via-emerald-950 to-gray-900 relative overflow-hidden flex items-center justify-center p-4">
-      {/* Animated Background Vectors */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Large Animated Blobs */}
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-emerald-900/30 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gray-800/30 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-950/30 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
+    <>
+      <style dangerouslySetInnerHTML={{__html: `
+        .payment-page-ltr,
+        .payment-page-ltr * {
+          direction: ltr !important;
+        }
+        .payment-page-ltr h1,
+        .payment-page-ltr h2,
+        .payment-page-ltr h3,
+        .payment-page-ltr p,
+        .payment-page-ltr span,
+        .payment-page-ltr div:not(.text-center):not([class*="text-center"]):not(.payment-center) {
+          text-align: left !important;
+        }
+        .payment-page-ltr .text-center,
+        .payment-page-ltr [class*="text-center"],
+        .payment-page-ltr .payment-center {
+          text-align: center !important;
+        }
+        .payment-center {
+          text-align: center !important;
+          margin-left: auto !important;
+          margin-right: auto !important;
+        }
         
-        {/* Floating Geometric Shapes */}
-        <div className="absolute top-20 left-10 w-16 h-16 bg-emerald-800/20 rounded-lg rotate-45 opacity-20 animate-float"></div>
-        <div className="absolute top-40 right-20 w-12 h-12 bg-emerald-700/20 rounded-full opacity-20 animate-float animation-delay-1000"></div>
-        <div className="absolute bottom-32 left-1/4 w-20 h-20 bg-gray-700/20 rounded-full opacity-20 animate-float animation-delay-2000"></div>
-        <div className="absolute bottom-20 right-1/3 w-14 h-14 bg-emerald-900/20 rotate-45 opacity-20 animate-float animation-delay-3000"></div>
+        @keyframes rotate-slow {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
         
-        {/* Animated Lines */}
-        <svg className="absolute top-0 left-0 w-full h-full opacity-10" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#059669" />
-              <stop offset="50%" stopColor="#10b981" />
-              <stop offset="100%" stopColor="#065f46" />
-            </linearGradient>
-          </defs>
-          <path d="M0,100 Q250,50 500,100 T1000,100" stroke="url(#lineGradient)" strokeWidth="2" fill="none" strokeDasharray="1000" strokeDashoffset="1000" className="animate-draw" />
-          <path d="M0,300 Q250,250 500,300 T1000,300" stroke="url(#lineGradient)" strokeWidth="2" fill="none" strokeDasharray="1000" strokeDashoffset="1000" className="animate-draw animation-delay-2000" />
-        </svg>
+        @keyframes rotate-reverse {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(-360deg);
+          }
+        }
+        
+        @keyframes float-gentle {
+          0%, 100% {
+            transform: translateY(0px) translateX(0px);
+          }
+          50% {
+            transform: translateY(-15px) translateX(10px);
+          }
+        }
+        
+        @keyframes pulse-gentle {
+          0%, 100% {
+            opacity: 0.15;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.25;
+            transform: scale(1.05);
+          }
+        }
+        
+        @keyframes slide-in {
+          from {
+            transform: translateX(-20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        
+        .animate-rotate-slow {
+          animation: rotate-slow 20s linear infinite;
+        }
+        
+        .animate-rotate-reverse {
+          animation: rotate-reverse 25s linear infinite;
+        }
+        
+        .animate-float-gentle {
+          animation: float-gentle 8s ease-in-out infinite;
+        }
+        
+        .animate-pulse-gentle {
+          animation: pulse-gentle 4s ease-in-out infinite;
+        }
+        
+        .animate-slide-in {
+          animation: slide-in 2s ease-out;
+        }
+      `}} />
+      <div 
+        className="payment-page-ltr min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 relative overflow-hidden flex items-center justify-center p-3 sm:p-4 md:p-6 font-sans" 
+        dir="ltr"
+        style={{ direction: 'ltr !important' as any, textAlign: 'left' }}
+      >
+      {/* Professional Islamic & Payment Background Vectors */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-[0.15]">
+        {/* Islamic Geometric Star Pattern - Top Left */}
+        <div className="absolute top-4 left-4 sm:top-10 sm:left-10 w-32 h-32 sm:w-48 sm:h-48 md:w-64 md:h-64 animate-rotate-slow hidden sm:block">
+          <svg viewBox="0 0 200 200" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#059669" stopOpacity="1"/>
+                <stop offset="100%" stopColor="#10b981" stopOpacity="0.7"/>
+              </linearGradient>
+            </defs>
+            {/* 8-pointed Islamic star */}
+            <circle cx="100" cy="100" r="80" fill="none" stroke="url(#grad1)" strokeWidth="2.5"/>
+            <polygon points="100,20 120,60 160,60 130,85 145,125 100,105 55,125 70,85 40,60 80,60" 
+                     fill="none" 
+                     stroke="url(#grad1)" 
+                     strokeWidth="2.5"/>
+            <polygon points="100,40 110,65 135,65 115,82 125,110 100,95 75,110 85,82 65,65 90,65" 
+                     fill="none" 
+                     stroke="url(#grad1)" 
+                     strokeWidth="2"/>
+          </svg>
+        </div>
+
+        {/* Payment/Credit Card Icon - Top Right */}
+        <div className="absolute top-4 right-4 sm:top-20 sm:right-20 w-32 h-32 sm:w-40 sm:h-40 md:w-56 md:h-56 animate-float-gentle hidden sm:block" style={{ animationDelay: '1s' }}>
+          <svg viewBox="0 0 200 120" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#059669" stopOpacity="0.8"/>
+                <stop offset="100%" stopColor="#0891b2" stopOpacity="0.7"/>
+              </linearGradient>
+            </defs>
+            {/* Credit Card Shape */}
+            <rect x="10" y="20" width="180" height="100" rx="8" fill="url(#cardGrad)" stroke="#059669" strokeWidth="2.5" opacity="0.9"/>
+            {/* Card Chip */}
+            <rect x="25" y="40" width="30" height="25" rx="4" fill="#fbbf24" opacity="0.9"/>
+            {/* Card Lines */}
+            <line x1="25" y1="75" x2="175" y2="75" stroke="#059669" strokeWidth="2.5" opacity="0.7"/>
+            <line x1="25" y1="85" x2="140" y2="85" stroke="#059669" strokeWidth="2" opacity="0.6"/>
+            {/* Card Number Pattern */}
+            <circle cx="150" cy="50" r="8" fill="#0891b2" opacity="0.7"/>
+            <circle cx="165" cy="50" r="8" fill="#0891b2" opacity="0.7"/>
+            <circle cx="180" cy="50" r="8" fill="#0891b2" opacity="0.7"/>
+          </svg>
+        </div>
+
+        {/* Islamic Hexagonal Pattern - Bottom Right */}
+        <div className="absolute bottom-4 right-4 sm:bottom-20 sm:right-16 w-40 h-40 sm:w-56 sm:h-56 md:w-72 md:h-72 animate-rotate-reverse hidden sm:block">
+          <svg viewBox="0 0 200 200" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="hexGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#10b981" stopOpacity="0.9"/>
+                <stop offset="100%" stopColor="#0891b2" stopOpacity="0.7"/>
+              </linearGradient>
+            </defs>
+            {/* Outer Hexagon */}
+            <polygon points="100,10 180,55 180,145 100,190 20,145 20,55" 
+                     fill="none" 
+                     stroke="url(#hexGrad)" 
+                     strokeWidth="3"/>
+            {/* Middle Hexagon */}
+            <polygon points="100,30 160,65 160,135 100,170 40,135 40,65" 
+                     fill="none" 
+                     stroke="url(#hexGrad)" 
+                     strokeWidth="2.5"/>
+            {/* Inner Circle */}
+            <circle cx="100" cy="100" r="35" fill="none" stroke="url(#hexGrad)" strokeWidth="2"/>
+            {/* Center Star */}
+            <polygon points="100,70 110,90 130,90 115,105 120,125 100,115 80,125 85,105 70,90 90,90" 
+                     fill="none" 
+                     stroke="url(#hexGrad)" 
+                     strokeWidth="2"/>
+          </svg>
+        </div>
+
+        {/* Payment Security Lock Icon - Bottom Left */}
+        <div className="absolute bottom-4 left-4 sm:bottom-8 sm:left-6 w-20 h-20 sm:w-24 sm:h-24 md:w-[120px] md:h-[120px] animate-pulse-gentle hidden sm:block" style={{ animationDelay: '2s' }}>
+          <svg viewBox="0 0 200 200" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="lockGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#059669"/>
+                <stop offset="100%" stopColor="#10b981"/>
+              </linearGradient>
+              <filter id="lockGlow">
+                <feGaussianBlur stdDeviation="5" result="coloredBlur"/>
+                <feMerge>
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            {/* Background circle for visibility */}
+            <circle cx="100" cy="100" r="90" fill="#059669" opacity="0.3"/>
+            {/* Lock body */}
+            <rect x="70" y="110" width="60" height="70" rx="8" fill="url(#lockGrad)" stroke="#047857" strokeWidth="6" filter="url(#lockGlow)"/>
+            {/* Lock shackle */}
+            <path d="M100,50 Q100,30 120,30 Q140,30 140,50 L140,90 L100,90 L100,50" 
+                  fill="none" 
+                  stroke="url(#lockGrad)" 
+                  strokeWidth="8" 
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  filter="url(#lockGlow)"/>
+            {/* Keyhole */}
+            <circle cx="100" cy="145" r="12" fill="#ffffff" opacity="0.9"/>
+            <rect x="95" y="145" width="10" height="20" rx="2" fill="#ffffff" opacity="0.9"/>
+            {/* Security checkmark overlay */}
+            <circle cx="100" cy="100" r="75" fill="none" stroke="#10b981" strokeWidth="3" opacity="0.5" strokeDasharray="10,5"/>
+          </svg>
+        </div>
+
+        {/* Islamic Geometric Circle Pattern - Center Background */}
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] sm:w-[400px] sm:h-[400px] md:w-[500px] md:h-[500px] lg:w-[600px] lg:h-[600px] animate-rotate-slow opacity-5" style={{ animationDuration: '30s' }}>
+          <svg viewBox="0 0 400 400" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="circlePattern" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+                <circle cx="50" cy="50" r="35" fill="none" stroke="#059669" strokeWidth="1.5" opacity="0.4"/>
+                <circle cx="50" cy="50" r="20" fill="none" stroke="#0891b2" strokeWidth="1.2" opacity="0.3"/>
+                <polygon points="50,15 60,40 85,40 65,55 70,80 50,65 30,80 35,55 15,40 40,40" 
+                         fill="none" 
+                         stroke="#10b981" 
+                         strokeWidth="1.2" 
+                         opacity="0.3"/>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#circlePattern)" />
+          </svg>
+        </div>
+
+        {/* Subtle Gradient Overlays */}
+        <div className="absolute top-0 right-0 w-[300px] h-[300px] sm:w-[400px] sm:h-[400px] md:w-[500px] md:h-[500px] lg:w-[600px] lg:h-[600px] bg-gradient-to-br from-emerald-100/30 to-blue-100/30 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-[250px] h-[250px] sm:w-[350px] sm:h-[350px] md:w-[400px] md:h-[400px] lg:w-[500px] lg:h-[500px] bg-gradient-to-tr from-blue-100/30 to-teal-100/30 rounded-full blur-3xl"></div>
       </div>
 
-      <div className="relative z-10 w-full max-w-lg">
+      <div className="relative z-10 w-full max-w-full sm:max-w-lg mx-auto">
         {/* Success Message */}
         {paymentSuccess && (
-          <Card className="mb-4 border-0 shadow-xl bg-gradient-to-r from-emerald-600 to-teal-600 backdrop-blur-sm">
-            <CardContent className="pt-4 pb-4 px-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/30 rounded-full flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
-                  <CheckCircle className="h-5 w-5 text-white" />
+          <Card className="mb-3 sm:mb-4 border-0 shadow-xl bg-gradient-to-r from-emerald-600 to-teal-600 backdrop-blur-sm rounded-xl sm:rounded-2xl">
+            <CardContent className="pt-4 pb-4 px-4 sm:pt-5 sm:pb-5 sm:px-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/30 rounded-full flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
+                  <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-white text-base">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-white text-sm sm:text-base mb-0.5 sm:mb-1" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
                     Payment Processed Successfully
                   </h3>
-                  <p className="text-xs text-white/90 mt-0.5">
+                  <p className="text-xs sm:text-sm text-white/90 break-words" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
                     Your payment has been recorded. Thank you!
                   </p>
                 </div>
@@ -234,17 +483,17 @@ export default function PaymentPage() {
 
         {/* Error Message */}
         {error && (
-          <Card className="mb-4 border-0 shadow-xl bg-gradient-to-r from-red-600 to-rose-600 backdrop-blur-sm">
-            <CardContent className="pt-4 pb-4 px-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/30 rounded-full flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
-                  <XCircle className="h-5 w-5 text-white" />
+          <Card className="mb-3 sm:mb-4 border-0 shadow-xl bg-gradient-to-r from-red-600 to-rose-600 backdrop-blur-sm rounded-xl sm:rounded-2xl">
+            <CardContent className="pt-4 pb-4 px-4 sm:pt-5 sm:pb-5 sm:px-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/30 rounded-full flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
+                  <XCircle className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-white text-base">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-white text-sm sm:text-base mb-0.5 sm:mb-1" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
                     Error
                   </h3>
-                  <p className="text-xs text-white/90 mt-0.5">{error}</p>
+                  <p className="text-xs sm:text-sm text-white/90 break-words" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>{error}</p>
                 </div>
               </div>
             </CardContent>
@@ -252,189 +501,180 @@ export default function PaymentPage() {
         )}
 
         {/* Main Payment Card */}
-        <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-xl overflow-hidden relative">
-          {/* Decorative Gradient Top */}
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-gray-800 via-emerald-800 to-gray-800"></div>
-          
-          <CardContent className="p-6 sm:p-7 md:p-8 relative">
-            {/* Header */}
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-gray-800 to-emerald-800 rounded-xl shadow-lg mb-3 transform hover:scale-105 transition-transform">
-                <FileText className="h-7 w-7 text-white" />
+        <Card className="border-0 shadow-2xl bg-white rounded-2xl sm:rounded-3xl overflow-hidden backdrop-blur-sm w-full" style={{ direction: 'ltr' }}>
+          <CardContent className="p-0" style={{ direction: 'ltr' }}>
+            {/* Header with gradient */}
+            <div className="bg-gradient-to-r from-green-500 via-emerald-500 to-blue-500 px-4 py-6 sm:px-6 sm:py-7 md:px-8 md:py-8 relative overflow-hidden">
+              {/* Decorative Islamic pattern overlay */}
+              <div className="absolute inset-0 opacity-10">
+                <svg className="w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="none">
+                  <defs>
+                    <pattern id="header-pattern" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+                      <circle cx="50" cy="50" r="30" fill="none" stroke="white" strokeWidth="1"/>
+                      <polygon points="50,20 65,45 90,45 70,60 75,85 50,70 25,85 30,60 10,45 35,45" 
+                               fill="none" 
+                               stroke="white" 
+                               strokeWidth="1"/>
+                    </pattern>
+                  </defs>
+                  <rect width="100%" height="100%" fill="url(#header-pattern)" />
+                </svg>
               </div>
-              <h1 className="text-2xl sm:text-2xl font-bold bg-gradient-to-r from-gray-800 via-emerald-700 to-gray-800 bg-clip-text text-transparent mb-2">
-                ElmCorner Payment Gateway
-              </h1>
-              {billPeriod && (
-                <div className="flex items-center justify-center gap-2 mt-2">
-                  <p className="text-xs font-semibold text-gray-600 bg-gray-100 inline-block px-3 py-1 rounded-full">
-                    {format(billPeriod.startDate, "MMM d")} - {format(billPeriod.endDate, "MMM d, yyyy")}
+              
+              <div className="relative z-10 text-center payment-center" style={{ direction: 'ltr', textAlign: 'center' }}>
+                <div className="flex items-center justify-center gap-1.5 sm:gap-2 mb-2 sm:mb-3" style={{ direction: 'ltr', justifyContent: 'center' }}>
+                  <Building2 className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                  <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white tracking-tight payment-center" style={{ fontFamily: 'var(--font-inter), sans-serif', direction: 'ltr', textAlign: 'center', margin: '0 auto' }}>
+                    ElmCorner Academy
+                  </h1>
+                </div>
+                <div className="text-center payment-center" style={{ direction: 'ltr', textAlign: 'center', width: '100%' }}>
+                  <p className="text-white/95 text-sm sm:text-base font-medium payment-center" style={{ fontFamily: 'var(--font-inter), sans-serif', direction: 'ltr', textAlign: 'center', display: 'block', margin: '0 auto' }}>
+                    Hello, {studentName}
                   </p>
-                  <p className="text-xs font-semibold text-emerald-600 bg-emerald-50 inline-block px-3 py-1 rounded-full">
-                    {getMonthName(billPeriod.startDate)}
-                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-4 py-5 sm:px-6 sm:py-6 md:px-8 md:py-8">
+              {/* Billing Period */}
+              {billingPeriod && (
+                <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8 pb-4 sm:pb-6 border-b border-gray-100">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-emerald-100 to-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+                      Billing Period
+                    </p>
+                    <p className="text-sm sm:text-base font-semibold text-gray-900 break-words" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+                      From {billingPeriod.from} to {billingPeriod.to}
+                    </p>
+                  </div>
                 </div>
               )}
-            </div>
 
-            {/* Client Name Section */}
-            <div className="mb-6 text-center">
-              <p className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">
-                Client Name
-              </p>
-              <div className="inline-block p-3 bg-gradient-to-r from-gray-50 to-emerald-50 rounded-xl border-2 border-gray-200">
-                <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-gray-800 to-emerald-700 bg-clip-text text-transparent">
-                  {bill.student?.name || "N/A"}
-                </h2>
-              </div>
-            </div>
-
-            {/* Divider with Gradient */}
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200"></div>
-              </div>
-              <div className="relative flex justify-center">
-                <span className="bg-white px-3 text-gray-600 text-xs font-semibold">Details</span>
-              </div>
-            </div>
-
-            {/* Bill Details */}
-            <div className="space-y-4 mb-6">
-              {/* Total Hours */}
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-emerald-50 rounded-xl border-2 border-gray-200 transform hover:scale-[1.02] transition-transform">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-emerald-700 rounded-lg flex items-center justify-center shadow-md">
-                    <span className="text-white font-bold text-sm">H</span>
+              {/* Total Classes */}
+              <div className="flex items-center justify-between mb-4 sm:mb-6 p-3 sm:p-4 bg-gradient-to-r from-gray-50 to-emerald-50 rounded-xl border border-gray-100">
+                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-lg flex items-center justify-center shadow-sm border border-gray-100 flex-shrink-0">
+                    <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" />
                   </div>
-                  <p className="text-sm font-semibold text-gray-700">
-                    Total Hours
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+                      Total Classes
+                    </p>
+                    <p className="text-base sm:text-lg font-bold text-gray-900" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+                      {getTotalClasses()} {getTotalClasses() === 1 ? 'class' : 'classes'}
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-gray-800 to-emerald-700 bg-clip-text text-transparent">
-                  {formatHours(bill.total_hours)} <span className="text-sm font-normal text-gray-500">hrs</span>
-                </p>
               </div>
 
               {/* Total Amount */}
-              <div className="p-6 bg-gradient-to-br from-gray-800 via-emerald-800 to-gray-800 rounded-2xl shadow-xl transform hover:scale-[1.02] transition-transform">
-                <p className="text-xs font-bold text-white/90 uppercase tracking-wider mb-3 text-center">
-                  Total Amount
-                </p>
-                <p className="text-3xl sm:text-4xl font-bold text-white text-center drop-shadow-lg">
-                  {formatCurrency(bill.total_amount, bill.currency)}
-                </p>
+              <div className="bg-gradient-to-r from-green-500 via-emerald-500 to-blue-500 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 mb-6 sm:mb-8 shadow-lg relative overflow-hidden">
+                {/* Decorative corner pattern */}
+                <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 opacity-10">
+                  <svg viewBox="0 0 100 100" className="w-full h-full">
+                    <polygon points="0,0 100,0 100,100" fill="white"/>
+                    <circle cx="80" cy="20" r="15" fill="none" stroke="white" strokeWidth="2"/>
+                  </svg>
+                </div>
+                <div className="relative z-10 text-center payment-center" style={{ direction: 'ltr', textAlign: 'center', width: '100%' }}>
+                  <p className="text-white/90 text-xs sm:text-sm font-medium uppercase tracking-wider mb-1 sm:mb-2 payment-center" style={{ fontFamily: 'var(--font-inter), sans-serif', direction: 'ltr', textAlign: 'center', margin: '0 auto' }}>
+                    Total Amount
+                  </p>
+                  <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight payment-center break-words" style={{ fontFamily: 'var(--font-inter), sans-serif', direction: 'ltr', textAlign: 'center', margin: '0 auto' }}>
+                    {formatCurrency(bill.total_amount, bill.currency)}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            {/* Divider */}
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200"></div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="space-y-3">
-              <Button
-                className="w-full h-11 bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-800 border-2 border-gray-300 font-semibold text-sm transition-all hover:shadow-lg hover:scale-[1.02] transform"
-                variant="outline"
-                onClick={handleDownloadPDF}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download Report
-              </Button>
-
+              {/* Payment Options */}
               {bill.status !== "paid" && (
-                <Button
-                  className="w-full h-11 bg-gradient-to-r from-gray-800 via-emerald-700 to-gray-800 hover:from-gray-900 hover:via-emerald-800 hover:to-gray-900 text-white font-semibold text-sm shadow-xl transition-all hover:shadow-2xl hover:scale-[1.02] transform"
-                  onClick={() => setShowPaymentDialog(true)}
-                >
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Pay Now
-                </Button>
+                <div className="mb-6">
+                  {/* Credit Card Option */}
+                  <Card className="border-2 border-gray-200 hover:border-green-500 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md bg-white">
+                    <CardContent className="p-4 sm:p-5">
+                      <div className="flex flex-col gap-3 sm:gap-4">
+                        <div className="flex items-center gap-3 sm:gap-4">
+                          <div className="w-14 h-10 sm:w-16 sm:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-md relative overflow-hidden flex-shrink-0">
+                            {/* Credit Card Chip */}
+                            <div className="absolute left-1.5 top-1.5 sm:left-2 sm:top-2 w-5 h-4 sm:w-6 sm:h-5 bg-yellow-400 rounded-sm"></div>
+                            {/* Credit Card Lines */}
+                            <div className="absolute left-1.5 sm:left-2 bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 h-0.5 sm:h-1 bg-white/30 rounded"></div>
+                            <div className="absolute left-1.5 sm:left-2 bottom-3 sm:bottom-4 right-1.5 sm:right-2 h-0.5 bg-white/20 rounded"></div>
+                            {/* Credit Card Icon */}
+                            <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white/90" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/>
+                              <line x1="2" y1="10" x2="22" y2="10" stroke="currentColor" strokeWidth="2"/>
+                              <circle cx="18" cy="15" r="1.5" fill="currentColor"/>
+                            </svg>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-gray-900 mb-1 text-sm sm:text-base" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+                              Credit Card
+                            </h3>
+                            <p className="text-xs text-gray-600 leading-relaxed" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+                              Pay securely with your credit or debit card
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => handlePaymentMethodSelect("credit_card")}
+                          disabled={isProcessing}
+                          className="w-full bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-semibold text-sm sm:text-base py-2.5 sm:py-3 shadow-md hover:shadow-lg transition-all"
+                          style={{ fontFamily: 'var(--font-inter), sans-serif' }}
+                        >
+                          {isProcessing ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Pay with Credit Card"
+                          )}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               )}
 
+              {/* Paid Status */}
               {bill.status === "paid" && (
-                <div className="p-4 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl shadow-lg text-center border-2 border-emerald-500">
-                  <div className="flex items-center justify-center gap-2.5 text-white">
-                    <CheckCircle className="h-5 w-5" />
-                    <span className="font-semibold text-base">
+                <div className="p-4 sm:p-5 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl sm:rounded-2xl shadow-lg text-center border-2 border-emerald-500 mb-4 sm:mb-6">
+                  <div className="flex items-center justify-center gap-2 sm:gap-3 text-white">
+                    <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <span className="font-bold text-sm sm:text-base" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
                       Payment Completed
                     </span>
                   </div>
                 </div>
               )}
+
+              {/* Download PDF Button */}
+              <Button
+                type="button"
+                className="w-full mt-3 sm:mt-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm sm:text-base py-2.5 sm:py-3 shadow-lg hover:shadow-xl transition-all border-0"
+                onClick={handleDownloadPDF}
+                disabled={isDownloadingPDF}
+                style={{ fontFamily: 'var(--font-inter), sans-serif' }}
+              >
+                {isDownloadingPDF ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    Generating PDF...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-5 w-5 mr-2" />
+                    Download Report
+                  </>
+                )}
+              </Button>
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Payment Dialog */}
-      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Select Payment Method
-            </DialogTitle>
-            <DialogDescription>
-              Choose your preferred payment method. Note: This is a placeholder - no real payment integration.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">
-                Payment Method
-              </label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select payment method" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="credit_card">
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="h-4 w-4" />
-                      Credit Card
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="bank_transfer">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      Bank Transfer
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800">
-                <strong>Note:</strong>{" "}
-                This is a placeholder payment form. Real payment gateway integration will be implemented later.
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleProcessPayment}
-              disabled={isProcessing || !paymentMethod}
-              className="bg-gradient-to-r from-gray-800 to-emerald-700 hover:from-gray-900 hover:to-emerald-800"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                "Process Payment"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
+    </>
   );
 }

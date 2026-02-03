@@ -43,7 +43,7 @@ export default function PackagesPage() {
   const [packages, setPackages] = useState<Package[]>([]);
   const [filters, setFilters] = useState<ApiPackageFilters>({
     search: "",
-    status: "all",
+    status: "all", // Default to showing all active and finished packages (paid excluded)
   });
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -77,17 +77,20 @@ export default function PackagesPage() {
       setTotalPages(response.last_page);
 
       // Calculate stats from all packages (fetch without pagination for stats)
+      // Exclude paid packages - only show active and finished
       if (currentPage === 1) {
         const allPackagesResponse = await PackageService.getPackages({
           ...filters,
-          status: "all",
+          status: "all", // This will return only active and finished (paid excluded by backend)
           per_page: 1000, // Get all for stats
         });
         const allPackages = allPackagesResponse.data;
+        // Filter out paid packages just in case (backend should handle this, but double-check)
+        const nonPaidPackages = allPackages.filter((p: Package) => p.status !== "paid");
         setStats({
-          total: allPackagesResponse.total || allPackages.length,
-          active: allPackages.filter((p: Package) => p.status === "active").length,
-          finished: allPackages.filter((p: Package) => p.status === "finished").length,
+          total: nonPaidPackages.length,
+          active: nonPaidPackages.filter((p: Package) => p.status === "active").length,
+          finished: nonPaidPackages.filter((p: Package) => p.status === "finished").length,
         });
       }
     } catch (err: any) {

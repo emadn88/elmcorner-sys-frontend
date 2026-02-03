@@ -284,4 +284,43 @@ export class PackageService {
       return 0;
     }
   }
+
+  /**
+   * Mark all bills for a package as paid
+   */
+  static async markPackageAsPaid(packageId: number): Promise<void> {
+    const response = await apiClient.post(
+      API_ENDPOINTS.ADMIN.PACKAGE_MARK_PAID(packageId),
+      {}
+    );
+
+    if (response.status !== "success") {
+      throw new Error(response.message || "Failed to mark package as paid");
+    }
+  }
+
+  /**
+   * Get notification history for a package
+   */
+  static async getNotificationHistory(packageId: number): Promise<Array<{
+    id: number;
+    sent_at: string;
+    status: string;
+    message_type: string;
+    recipient: string;
+  }>> {
+    const response = await apiClient.get<Array<{
+      id: number;
+      sent_at: string;
+      status: string;
+      message_type: string;
+      recipient: string;
+    }>>(API_ENDPOINTS.ADMIN.PACKAGE_NOTIFICATION_HISTORY(packageId));
+
+    if (response.status === "success" && response.data) {
+      return response.data;
+    }
+
+    throw new Error("Failed to fetch notification history");
+  }
 }

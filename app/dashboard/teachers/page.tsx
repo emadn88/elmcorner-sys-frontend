@@ -17,6 +17,7 @@ import { TeachersFilters } from "@/components/teachers/teachers-filters";
 import { TeacherDetailsModal } from "@/components/teachers/teacher-details-modal";
 import { TeacherCredentialsModal } from "@/components/teachers/teacher-credentials-modal";
 import { WhatsAppSuccessModal } from "@/components/teachers/whatsapp-success-modal";
+import { TeacherRatesModal } from "@/components/teachers/teacher-rates-modal";
 import {
   Dialog,
   DialogContent,
@@ -61,6 +62,7 @@ export default function TeachersPage() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isCredentialsOpen, setIsCredentialsOpen] = useState(false);
   const [isWhatsAppSuccessOpen, setIsWhatsAppSuccessOpen] = useState(false);
+  const [isRatesModalOpen, setIsRatesModalOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [deletingTeacher, setDeletingTeacher] = useState<Teacher | null>(null);
   const [detailsTeacher, setDetailsTeacher] = useState<Teacher | null>(null);
@@ -225,6 +227,12 @@ export default function TeachersPage() {
     setIsCredentialsOpen(true);
   };
 
+  // Handle view rates
+  const handleViewRates = (teacher: Teacher) => {
+    setDetailsTeacher(teacher);
+    setIsRatesModalOpen(true);
+  };
+
   if (isInitialLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -322,6 +330,7 @@ export default function TeachersPage() {
             onViewDetails={handleViewDetails}
             onSendWhatsApp={handleSendWhatsApp}
             onViewCredentials={handleViewCredentials}
+            onViewRates={handleViewRates}
             sendingWhatsAppId={sendingWhatsAppId}
           />
         ) : (
@@ -338,6 +347,7 @@ export default function TeachersPage() {
             onViewDetails={handleViewDetails}
             onSendWhatsApp={handleSendWhatsApp}
             onViewCredentials={handleViewCredentials}
+            onViewRates={handleViewRates}
             sendingWhatsAppId={sendingWhatsAppId}
           />
         )}
@@ -396,6 +406,14 @@ export default function TeachersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {detailsTeacher && (
+        <TeacherRatesModal
+          open={isRatesModalOpen}
+          onOpenChange={setIsRatesModalOpen}
+          teacher={detailsTeacher}
+        />
+      )}
     </motion.div>
   );
 }

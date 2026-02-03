@@ -1,6 +1,6 @@
 "use client";
 
-import { Video, Eye, Edit, Clock, CheckCircle2, XCircle, AlertCircle, CheckCircle, Pencil } from "lucide-react";
+import { Video, FileText, Clock, CheckCircle2, XCircle, AlertCircle, CheckCircle, Pencil } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -27,6 +27,7 @@ interface ClassesTableProps {
   onEnterMeet: (classItem: TeacherClass) => void;
   onEndClass: (classItem: TeacherClass) => void;
   onViewDetails: (classItem: TeacherClass) => void;
+  onWriteReport: (classItem: TeacherClass) => void;
   isLoading?: boolean;
 }
 
@@ -35,11 +36,49 @@ export function ClassesTable({
   onEnterMeet,
   onEndClass,
   onViewDetails,
+  onWriteReport,
   isLoading = false,
 }: ClassesTableProps) {
   const { t, direction } = useLanguage();
 
-  const getStatusBadge = (status: TeacherClass["status"]) => {
+  const getStatusBadge = (classItem: TeacherClass) => {
+    // Check if cancellation request is pending
+    if (classItem.cancellation_request_status === 'pending') {
+      return (
+        <Badge
+          variant="outline"
+          className="border text-xs font-medium bg-orange-100 text-orange-700 border-orange-200"
+        >
+          {t("teacher.waitingForAdminApproval") || "Waiting for Admin Approval"}
+        </Badge>
+      );
+    }
+    
+    // Check if cancellation request is approved (teacher should see this with disabled actions)
+    if (classItem.cancellation_request_status === 'approved' && classItem.status === 'cancelled_by_student') {
+      return (
+        <Badge
+          variant="outline"
+          className="border text-xs font-medium bg-green-100 text-green-700 border-green-200"
+        >
+          {t("teacher.cancellationApproved") || "Cancellation Approved"}
+        </Badge>
+      );
+    }
+    
+    // Check if cancellation request is rejected
+    if (classItem.cancellation_request_status === 'rejected') {
+      return (
+        <Badge
+          variant="outline"
+          className="border text-xs font-medium bg-red-100 text-red-700 border-red-200"
+        >
+          {t("teacher.cancellationRejected") || "Cancellation Rejected"}
+        </Badge>
+      );
+    }
+
+    const status = classItem.status;
     const variants = {
       attended: "bg-green-100 text-green-700 border-green-200",
       pending: "bg-yellow-100 text-yellow-700 border-yellow-200",
@@ -68,8 +107,12 @@ export function ClassesTable({
 
   const formatTime = (timeString: string) => {
     if (!timeString) return "—";
-    const [hours, minutes] = timeString.split(":");
-    return `${hours}:${minutes}`;
+    const [hours, minutes, seconds] = timeString.split(":");
+    const hour24 = parseInt(hours, 10);
+    const hour12 = hour24 % 12 || 12;
+    const ampm = hour24 >= 12 ? "PM" : "AM";
+    const mins = minutes || "00";
+    return `${hour12}:${mins} ${ampm}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -77,6 +120,17 @@ export function ClassesTable({
       return format(new Date(dateString), "MMM dd, yyyy");
     } catch {
       return dateString;
+    }
+  };
+
+  const formatDateTime = (dateString: string, timeString: string) => {
+    if (!dateString || !timeString) return "—";
+    try {
+      const date = formatDate(dateString);
+      const time = formatTime(timeString);
+      return `${date} ${time}`;
+    } catch {
+      return "—";
     }
   };
 
@@ -94,26 +148,26 @@ export function ClassesTable({
     <div className="rounded-md border border-gray-200 bg-white overflow-x-auto">
       <Table>
         <TableHeader>
-          <TableRow className="bg-gray-50/50">
-            <TableHead className="min-w-[120px] text-xs sm:text-sm">
+          <TableRow className="bg-gradient-to-r from-gray-50 to-gray-100/50 border-b-2 border-gray-200">
+            <TableHead className="min-w-[140px] text-xs sm:text-sm font-semibold text-gray-700">
               {t("classes.student") || "Student"}
             </TableHead>
-            <TableHead className="min-w-[120px] text-xs sm:text-sm hidden sm:table-cell">
+            <TableHead className="min-w-[120px] text-xs sm:text-sm font-semibold text-gray-700 hidden sm:table-cell">
               {t("classes.course") || "Course"}
             </TableHead>
-            <TableHead className="min-w-[100px] text-xs sm:text-sm">
+            <TableHead className="min-w-[100px] text-xs sm:text-sm font-semibold text-gray-700">
               {t("classes.date") || "Date"}
             </TableHead>
-            <TableHead className="min-w-[100px] text-xs sm:text-sm">
-              {t("classes.time") || "Time"}
+            <TableHead className="min-w-[120px] text-xs sm:text-sm font-semibold text-gray-700">
+              {t("teacher.teacherTime") || "Teacher Time"}
             </TableHead>
-            <TableHead className="min-w-[80px] text-xs sm:text-sm hidden md:table-cell">
-              {t("classes.duration") || "Duration"}
+            <TableHead className="min-w-[120px] text-xs sm:text-sm font-semibold text-gray-700">
+              {t("teacher.studentTime") || "Student Time"}
             </TableHead>
-            <TableHead className="min-w-[100px] text-xs sm:text-sm">
+            <TableHead className="min-w-[100px] text-xs sm:text-sm font-semibold text-gray-700">
               {t("classes.statusLabel") || "Status"}
             </TableHead>
-            <TableHead className={cn("min-w-[120px] sm:min-w-[180px] sm:w-[180px] text-xs sm:text-sm", direction === "rtl" ? "text-left" : "text-right")}>
+            <TableHead className={cn("min-w-[180px] sm:min-w-[220px] text-xs sm:text-sm font-semibold text-gray-700", direction === "rtl" ? "text-left" : "text-right")}>
               {t("classes.actions") || "Actions"}
             </TableHead>
           </TableRow>
@@ -131,141 +185,192 @@ export function ClassesTable({
             </TableRow>
           ) : (
             classes.map((classItem) => {
-              // Highlight row if meet was entered and class is pending (waiting for data)
-              const isInProgress = classItem.meet_link_used && classItem.status === 'pending';
-              // Ensure boolean values are properly handled
+              // Highlight row if meet was entered
               const meetLinkUsed = Boolean(classItem.meet_link_used);
-              const canEnterMeet = Boolean(classItem.can_enter_meet) && !meetLinkUsed;
-              const canEndClass = meetLinkUsed && classItem.status === 'pending';
-              // Show edit button only after meet was entered
-              const canEditDetails = meetLinkUsed;
+              const isPending = classItem.status === 'pending';
+              const reportWritten = Boolean(classItem.class_report);
+              const reportSent = Boolean(classItem.report_submitted_at);
+              
+              // Calculate class end time
+              const classEndTime = classItem.class_date && classItem.end_time
+                ? new Date(`${classItem.class_date}T${classItem.end_time}`)
+                : null;
+              const oneHourAfterEnd = classEndTime
+                ? new Date(classEndTime.getTime() + 60 * 60 * 1000) // Add 1 hour
+                : null;
+              const isPastOneHour = oneHourAfterEnd ? new Date() > oneHourAfterEnd : false;
+              
+              // Check if cancellation was rejected or approved
+              const hasRejectedCancellation = classItem.cancellation_request_status === 'rejected';
+              const hasApprovedCancellation = classItem.cancellation_request_status === 'approved' && classItem.status === 'cancelled_by_student';
+              
+              // Button logic: Hide Start Class if meet link was used or status is not pending
+              // Also disable if cancellation was rejected or approved
+              const canEnterMeet = isPending && Boolean(classItem.can_enter_meet) && !meetLinkUsed && !hasRejectedCancellation && !hasApprovedCancellation;
+              
+              // Show Write Report if meet link was used (regardless of status) and report not written/sent yet
+              // Disable if 1 hour passed after class end time, pending cancellation, rejected cancellation, or approved cancellation
+              const canWriteReport = meetLinkUsed && !reportWritten && !isPastOneHour && classItem.cancellation_request_status !== 'pending' && !hasRejectedCancellation && !hasApprovedCancellation;
+              const hasPendingCancellation = classItem.cancellation_request_status === 'pending';
+              
+              // Format teacher time with date
+              const teacherTime = classItem.class_date
+                ? `${formatDate(classItem.class_date)}\n${formatTime(classItem.start_time)} - ${formatTime(classItem.end_time)}`
+                : `${formatTime(classItem.start_time)} - ${formatTime(classItem.end_time)}`;
+              
+              // Format student time with date if available
+              const studentTime = classItem.student_date && classItem.student_start_time && classItem.student_end_time
+                ? `${formatDate(classItem.student_date)}\n${formatTime(classItem.student_start_time)} - ${formatTime(classItem.student_end_time)}`
+                : classItem.student_start_time && classItem.student_end_time
+                ? `${formatTime(classItem.student_start_time)} - ${formatTime(classItem.student_end_time)}`
+                : "—";
               
               return (
               <TableRow
                 key={classItem.id}
                 className={cn(
-                  "transition-colors hover:bg-gray-50/50",
-                  isInProgress && "bg-blue-50/50 border-l-4 border-l-blue-500"
+                  "transition-all duration-200 hover:bg-gray-50/80 border-b border-gray-100",
+                  meetLinkUsed && "bg-blue-50/60 border-l-4 border-l-blue-500 shadow-sm"
                 )}
               >
-                <TableCell>
+                <TableCell className="py-4">
                   <div className={cn(
                     "min-w-0",
                     direction === "rtl" ? "text-right" : "text-left"
                   )}>
-                    <div className="font-medium text-gray-900 text-xs sm:text-sm">
-                      {classItem.student?.full_name || "Unknown Student"}
+                    <div className="font-semibold text-gray-900 text-sm">
+                      {classItem.student?.full_name || t("teacher.unknownStudent") || "Unknown Student"}
                     </div>
-                    {classItem.student?.email && (
-                      <div className="text-xs text-gray-500 truncate hidden sm:block">
-                        {classItem.student.email}
-                      </div>
-                    )}
                     {/* Show course on mobile in student cell */}
                     <div className="text-xs text-gray-600 sm:hidden mt-1">
-                      {classItem.course?.name || "Unknown Course"}
+                      {classItem.course?.name || t("teacher.unknownCourse") || "Unknown Course"}
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="hidden sm:table-cell">
-                  <div className="text-xs sm:text-sm text-gray-900 font-medium">
-                    {classItem.course?.name || "Unknown Course"}
+                <TableCell className="hidden sm:table-cell py-4">
+                  <div className="text-sm text-gray-900 font-medium">
+                    {classItem.course?.name || t("teacher.unknownCourse") || "Unknown Course"}
                   </div>
                 </TableCell>
-                <TableCell>
-                  <div className="text-xs sm:text-sm text-gray-600">
+                <TableCell className="py-4">
+                  <div className="text-sm text-gray-700 font-medium">
                     {formatDate(classItem.class_date)}
                   </div>
                 </TableCell>
-                <TableCell>
-                  <div className="text-xs sm:text-sm text-gray-600">
-                    {formatTime(classItem.start_time)} - {formatTime(classItem.end_time)}
+                <TableCell className="py-4">
+                  <div className="text-sm text-gray-700 whitespace-pre-line">
+                    {teacherTime}
                   </div>
                 </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  <div className="text-xs sm:text-sm text-gray-600">
-                    {classItem.duration ? `${classItem.duration} min` : "—"}
+                <TableCell className="py-4">
+                  <div className="text-sm text-gray-700 whitespace-pre-line">
+                    {studentTime}
                   </div>
                 </TableCell>
-                <TableCell>
-                  {getStatusBadge(classItem.status)}
+                <TableCell className="py-4">
+                  {getStatusBadge(classItem)}
                 </TableCell>
-                <TableCell className="min-w-[120px] sm:min-w-[180px]">
+                <TableCell className="min-w-[180px] sm:min-w-[220px] py-4">
                   <div className={cn(
-                    "flex items-center gap-1 flex-wrap",
+                    "flex items-center gap-2 flex-wrap",
                     direction === "rtl" ? "justify-start" : "justify-end"
                   )}>
                     <TooltipProvider>
-                      {/* Step 1: Enter Meet - show only if can enter and haven't entered yet */}
+                      {/* Start Class Button - visible initially, enabled if can enter meet */}
                       {canEnterMeet && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                              variant="default"
+                              size="sm"
+                              className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium shadow-sm"
                               onClick={() => onEnterMeet(classItem)}
                             >
-                              <Video className="h-4 w-4" />
-                              <span className="sr-only">
-                                {t("teacher.enterMeet") || "Enter Meet"}
-                              </span>
+                              <Video className="h-3.5 w-3.5 mr-1.5" />
+                              {t("teacher.startClass") || "Start Class"}
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>{t("teacher.enterMeet") || "Enter Meet"}</p>
+                            <p>{t("teacher.startClass") || "Start Class"}</p>
                           </TooltipContent>
                         </Tooltip>
                       )}
                       
-                      {/* Step 2: End Class - only show if meet was entered and class is pending */}
-                      {canEndClass && (
+                      {/* Write Report Button - visible if meet link was used */}
+                      {meetLinkUsed && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50 transition-colors"
-                              onClick={() => onEndClass(classItem)}
+                              variant={reportSent ? "default" : (canWriteReport ? "default" : "outline")}
+                              size="sm"
+                              className={cn(
+                                "h-8 px-3 text-xs font-medium shadow-sm",
+                                reportSent
+                                  ? "bg-green-500 hover:bg-green-600 text-white cursor-default"
+                                  : canWriteReport 
+                                  ? "bg-green-600 hover:bg-green-700 text-white" 
+                                  : hasPendingCancellation
+                                  ? "bg-orange-100 text-orange-600 cursor-not-allowed border-orange-200"
+                                  : isPastOneHour
+                                  ? "bg-red-100 text-red-600 cursor-not-allowed border-red-200"
+                                  : "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                              )}
+                              onClick={() => canWriteReport && onWriteReport(classItem)}
+                              disabled={reportWritten || !canWriteReport || hasPendingCancellation || isPastOneHour}
                             >
-                              <CheckCircle className="h-4 w-4" />
-                              <span className="sr-only">
-                                {t("teacher.endClass") || "End Class"}
-                              </span>
+                              <FileText className="h-3.5 w-3.5 mr-1.5" />
+                              {reportSent 
+                                ? (t("teacher.reportSentSuccessfully") || "Report Sent Successfully")
+                                : reportWritten
+                                ? (t("teacher.writeReport") || "Write Report")
+                                : (t("teacher.writeReport") || "Write Report")
+                              }
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>{t("teacher.endClass") || "End Class"}</p>
+                            <p>
+                              {reportSent
+                                ? (t("teacher.reportSentSuccessfully") || "Report Sent Successfully")
+                                : hasPendingCancellation
+                                ? (t("teacher.waitingForAdminApproval") || "Waiting for Admin Approval")
+                                : isPastOneHour
+                                ? (t("teacher.reportDeadlinePassed") || "Report deadline passed (1 hour after class end)")
+                                : canWriteReport 
+                                ? (t("teacher.writeReport") || "Write Report")
+                                : (t("teacher.startClassFirst") || "Start class first")
+                              }
+                            </p>
                           </TooltipContent>
                         </Tooltip>
                       )}
                       
-                      {/* Step 3: Edit Details - show only after meet was entered (replaces eye icon) */}
-                      {canEditDetails && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-purple-600 hover:text-purple-700 hover:bg-purple-50 transition-colors"
-                              onClick={() => onViewDetails(classItem)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                              <span className="sr-only">
-                                {t("teacher.editDetails") || "Edit Details"}
-                              </span>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{t("teacher.editDetails") || "Edit Details"}</p>
-                          </TooltipContent>
-                        </Tooltip>
+                      {/* Show approved cancellation message */}
+                      {hasApprovedCancellation && (
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs text-green-600 font-medium">
+                            {t("teacher.cancellationApproved") || "Cancellation Approved - Class counted for salary"}
+                          </span>
+                        </div>
                       )}
                       
-                      {/* Show message if no actions available */}
-                      {!canEnterMeet && !canEndClass && !canEditDetails && (
+                      {/* Show rejection message if cancelled and rejected */}
+                      {hasRejectedCancellation && (
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs text-red-600 font-medium">
+                            {t("teacher.cancellationRejected") || "Cancellation Rejected"}
+                          </span>
+                          {classItem.admin_rejection_reason && (
+                            <span className="text-xs text-gray-600 italic">
+                              {t("teacher.adminReason") || "Admin Reason"}: {classItem.admin_rejection_reason}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Show message if no actions available at all */}
+                      {!canEnterMeet && !meetLinkUsed && !hasRejectedCancellation && !hasApprovedCancellation && (
                         <span className="text-xs text-gray-400 italic">
-                          {t("teacher.waitingForClassTime") || "Waiting for class time"}
+                          {t("teacher.noActionsAvailable") || "No actions available"}
                         </span>
                       )}
                     </TooltipProvider>

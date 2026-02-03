@@ -29,7 +29,28 @@ export class NotificationService {
   /**
    * Reject class cancellation request
    */
-  static async rejectCancellation(id: number): Promise<void> {
-    await apiClient.put(API_ENDPOINTS.ADMIN_NOTIFICATIONS.REJECT_CANCELLATION(id));
+  static async rejectCancellation(id: number, reason: string): Promise<void> {
+    await apiClient.put(API_ENDPOINTS.ADMIN_NOTIFICATIONS.REJECT_CANCELLATION(id), {
+      reason,
+    });
+  }
+
+  /**
+   * Get all cancellation requests with filters (for log)
+   */
+  static async getAllCancellationRequests(filters?: {
+    status?: string;
+    date_from?: string;
+    date_to?: string;
+    teacher_id?: number;
+    student_id?: number;
+    course_id?: number;
+    search?: string;
+  }): Promise<NotificationItem[]> {
+    const response = await apiClient.get<NotificationItem[]>(
+      API_ENDPOINTS.ADMIN_NOTIFICATIONS.ALL_CANCELLATION_REQUESTS,
+      { params: filters }
+    );
+    return response.data;
   }
 }

@@ -30,6 +30,9 @@ import { useLanguage } from "@/contexts/language-context";
 import { Card } from "@/components/ui/card";
 import { Plus, X, Search } from "lucide-react";
 import { COUNTRIES, Country } from "@/lib/countries-timezones";
+import { apiClient } from "@/lib/api/client";
+import { API_ENDPOINTS } from "@/lib/api/endpoints";
+import { TimePicker } from "@/components/ui/time-picker";
 
 interface TimetableFormModalProps {
   open: boolean;
@@ -101,8 +104,11 @@ export function TimetableFormModal({
   const [selectedTeacherName, setSelectedTeacherName] = useState("");
   const [selectedStudentTimezone, setSelectedStudentTimezone] = useState("");
   const [selectedTeacherTimezone, setSelectedTeacherTimezone] = useState("");
-  const [teacherAvailability, setTeacherAvailability] = useState<any[]>([]);
-  const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
+  
+  // Manual time difference (minutes) - positive means student is ahead, negative means behind
+  const [timeDifference, setTimeDifference] = useState<number>(0);
+  const [timeDifferenceInitialized, setTimeDifferenceInitialized] = useState<boolean>(false);
+  const [allCourses, setAllCourses] = useState<Course[]>([]); // Store all courses, filter by teacher
 
   // Time slot mode: "same" or "different"
   const [timeSlotMode, setTimeSlotMode] = useState<"same" | "different">("same");
@@ -143,6 +149,49 @@ export function TimetableFormModal({
         
         const teacherCountry = COUNTRIES.find(c => c.timezone === timetable.teacher_timezone);
         if (teacherCountry) setSelectedTeacherTimezone(`${teacherCountry.name} (${teacherCountry.timezone})`);
+        
+        // Load time difference from stored value or calculate from timezones
+        if (timetable.time_difference_minutes !== undefined && timetable.time_difference_minutes !== null) {
+          // Use stored value if available
+          setTimeDifference(timetable.time_difference_minutes);
+          setTimeDifferenceInitialized(true);
+        } else if (timetable.student_timezone && timetable.teacher_timezone && !timeDifferenceInitialized) {
+          // Calculate from timezones only if not stored
+          try {
+            const now = new Date();
+            const formatter1 = new Intl.DateTimeFormat('en-US', {
+              timeZone: timetable.teacher_timezone,
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+            });
+            const formatter2 = new Intl.DateTimeFormat('en-US', {
+              timeZone: timetable.student_timezone,
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+            });
+            
+            const time1 = formatter1.format(now);
+            const time2 = formatter2.format(now);
+            
+            const [h1, m1] = time1.split(':').map(Number);
+            const [h2, m2] = time2.split(':').map(Number);
+            
+            const minutes1 = h1 * 60 + m1;
+            const minutes2 = h2 * 60 + m2;
+            
+            let diff = minutes2 - minutes1;
+            if (diff > 720) diff -= 1440;
+            if (diff < -720) diff += 1440;
+            
+            setTimeDifference(diff); // Store in minutes
+            setTimeDifferenceInitialized(true);
+          } catch (err) {
+            setTimeDifference(0);
+            setTimeDifferenceInitialized(true);
+          }
+        }
         
         // Determine if same or different mode
         if (timetable.time_slots.length > 0) {
@@ -190,17 +239,89 @@ export function TimetableFormModal({
         setSelectedTeacherName("");
         setSelectedStudentTimezone("");
         setSelectedTeacherTimezone("");
+        setTimeDifference(0);
+        setTimeDifferenceInitialized(false);
       }
     }
   }, [open, timetable]);
 
-  // Set selected student name after students are loaded
+  // Recalculate time difference when timezones change (only for new timetables, not when editing)
+  useEffect(() => {
+    // Only auto-calculate if creating new timetable and timeDifference hasn't been manually set
+    if (!isEdit && !timeDifferenceInitialized && formData.student_timezone && formData.teacher_timezone && formData.student_timezone !== "UTC" && formData.teacher_timezone !== "UTC") {
+      try {
+        const now = new Date();
+        const formatter1 = new Intl.DateTimeFormat('en-US', {
+          timeZone: formData.teacher_timezone,
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        });
+        const formatter2 = new Intl.DateTimeFormat('en-US', {
+          timeZone: formData.student_timezone,
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        });
+        
+        const time1 = formatter1.format(now);
+        const time2 = formatter2.format(now);
+        
+        const [h1, m1] = time1.split(':').map(Number);
+        const [h2, m2] = time2.split(':').map(Number);
+        
+        const minutes1 = h1 * 60 + m1;
+        const minutes2 = h2 * 60 + m2;
+        
+        let diff = minutes2 - minutes1;
+        if (diff > 720) diff -= 1440;
+        if (diff < -720) diff += 1440;
+        
+        setTimeDifference(diff);
+        setTimeDifferenceInitialized(true);
+      } catch (err) {
+        // Keep current value on error
+      }
+    }
+  }, [formData.student_timezone, formData.teacher_timezone, isEdit, timeDifferenceInitialized]);
+
+  // Set selected student and teacher names after data is loaded
   useEffect(() => {
     if (timetable && students.length > 0) {
       const student = students.find(s => s.id === timetable.student_id);
       if (student) setSelectedStudentName(student.full_name);
     }
   }, [timetable, students]);
+
+  // Set selected teacher name after teachers are loaded or from timetable data
+  useEffect(() => {
+    if (timetable) {
+      // First try to get from loaded teachers array
+      if (teachers.length > 0) {
+        const teacher = teachers.find(t => t.id === timetable.teacher_id);
+        if (teacher) {
+          const teacherName = (teacher as any).user?.name || (teacher as any).full_name || `Teacher ${teacher.id}`;
+          setSelectedTeacherName(teacherName);
+          return;
+        }
+      }
+      // Fallback: use teacher data from timetable if available
+      if (timetable.teacher) {
+        const teacherName = timetable.teacher?.user?.name || (timetable.teacher as any).full_name || `Teacher ${timetable.teacher_id}`;
+        setSelectedTeacherName(teacherName);
+      }
+    }
+  }, [timetable, teachers]);
+
+  // Load teacher courses when teacher is selected
+  useEffect(() => {
+    if (formData.teacher_id) {
+      loadTeacherCourses(parseInt(formData.teacher_id));
+    } else {
+      // If no teacher selected, show all courses
+      setCourses(allCourses);
+    }
+  }, [formData.teacher_id]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -244,34 +365,86 @@ export function TimetableFormModal({
   const loadCourses = async () => {
     try {
       const response = await CourseService.getCourses({ per_page: 100 });
-      setCourses(response.data);
+      setAllCourses(response.data);
+      // If teacher is selected, filter courses; otherwise show all
+      if (formData.teacher_id) {
+        await loadTeacherCourses(parseInt(formData.teacher_id));
+      } else {
+        setCourses(response.data);
+      }
     } catch (err) {
       console.error("Failed to load courses:", err);
+      setAllCourses([]);
       setCourses([]);
     }
   };
 
-  const loadTeacherAvailability = async (teacherId: number) => {
-    setIsLoadingAvailability(true);
+  const loadTeacherCourses = async (teacherId: number) => {
     try {
-      const response = await TeacherService.getTeacherWeeklySchedule(teacherId);
-      // Get availability from the schedule data
-      const availability: any[] = [];
-      response.schedule.forEach((day) => {
-        day.availability.forEach((avail) => {
-          availability.push({
-            ...avail,
-            day_of_week: day.day_of_week,
-          });
-        });
-      });
-      setTeacherAvailability(availability);
+      const response = await apiClient.get(API_ENDPOINTS.ADMIN.TEACHER(teacherId));
+      if (response.status === "success" && response.data) {
+        const teacher = (response.data as any).teacher || response.data;
+        if (teacher.courses && teacher.courses.length > 0) {
+          setCourses(teacher.courses);
+        } else {
+          // If teacher has no courses, show all courses
+          setCourses(allCourses.length > 0 ? allCourses : []);
+        }
+      } else {
+        setCourses(allCourses.length > 0 ? allCourses : []);
+      }
     } catch (err) {
-      console.error("Error loading teacher availability:", err);
-      setTeacherAvailability([]);
-    } finally {
-      setIsLoadingAvailability(false);
+      console.error("Error loading teacher courses:", err);
+      setCourses(allCourses.length > 0 ? allCourses : []);
     }
+  };
+
+  // Convert time using manual time difference
+  // timeDifference: positive = student ahead, negative = student behind (in minutes)
+  // Returns: { time, dateOffset: -1, 0, or 1 }
+  const convertTimeToStudentTimezone = (time: string, timeDiffMinutes: number): { time: string; dateOffset: number } => {
+    if (!time || timeDiffMinutes === 0) {
+      return { time, dateOffset: 0 };
+    }
+
+    try {
+      const [h, m] = time.split(':').map(Number);
+      let totalMins = h * 60 + m + timeDiffMinutes;
+      let dateOffset = 0;
+      
+      if (totalMins < 0) {
+        // Time goes to previous day
+        totalMins += 1440;
+        dateOffset = -1;
+      } else if (totalMins >= 1440) {
+        // Time goes to next day
+        totalMins -= 1440;
+        dateOffset = 1;
+      }
+      
+      const resultH = Math.floor(totalMins / 60);
+      const resultM = totalMins % 60;
+      
+      return {
+        time: `${String(resultH).padStart(2, '0')}:${String(resultM).padStart(2, '0')}`,
+        dateOffset
+      };
+    } catch (err) {
+      console.error("Error converting time:", err);
+      return { time, dateOffset: 0 };
+    }
+  };
+
+  // Get relative day text for preview
+  const getRelativeDayText = (dateOffset: number): string => {
+    if (dateOffset === 0) {
+      return t("timetables.form.sameDay");
+    } else if (dateOffset === 1) {
+      return t("timetables.form.dayAfter");
+    } else if (dateOffset === -1) {
+      return t("timetables.form.dayBefore");
+    }
+    return "";
   };
 
   const handleDayToggle = (day: number) => {
@@ -423,13 +596,32 @@ export function TimetableFormModal({
 
     try {
       setIsLoading(true);
+      
+      // Ensure teacher_id is valid
+      if (!formData.teacher_id || formData.teacher_id === "") {
+        alert(t("timetables.form.fillAllRequiredFields"));
+        setIsLoading(false);
+        return;
+      }
+      
       const data = {
-        ...formData,
         student_id: parseInt(formData.student_id),
         teacher_id: parseInt(formData.teacher_id),
         course_id: parseInt(courseId),
+        days_of_week: formData.days_of_week,
         time_slots: timeSlots,
+        student_timezone: formData.student_timezone,
+        teacher_timezone: formData.teacher_timezone,
+        time_difference_minutes: timeDifference,
+        status: formData.status,
       };
+
+      // Validate required fields
+      if (!data.teacher_id || isNaN(data.teacher_id)) {
+        alert("Please select a teacher");
+        setIsLoading(false);
+        return;
+      }
 
       if (isEdit && timetable) {
         await TimetableService.updateTimetable(timetable.id, data);
@@ -585,11 +777,12 @@ export function TimetableFormModal({
                             key={teacher.id}
                             className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                             onClick={() => {
-                              setSelectedTeacherName(teacherName);
-                              setTeacherSearch("");
-                              setFormData({ ...formData, teacher_id: teacher.id.toString() });
-                              setShowTeacherDropdown(false);
-                              loadTeacherAvailability(teacher.id);
+                            setSelectedTeacherName(teacherName);
+                            setTeacherSearch("");
+                            setFormData({ ...formData, teacher_id: teacher.id.toString() });
+                            setShowTeacherDropdown(false);
+                            // Load teacher courses when teacher is selected
+                            loadTeacherCourses(teacher.id);
                             }}
                           >
                             {teacherName}
@@ -622,68 +815,6 @@ export function TimetableFormModal({
                   </Select>
                 </div>
           </div>
-
-          {/* Teacher Availability */}
-          {formData.teacher_id && (
-            <div className="space-y-2 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <Label>{t("timetables.form.teacherAvailableTimes")}</Label>
-              {isLoadingAvailability ? (
-                <p className="text-sm text-gray-600">{t("timetables.form.loadingAvailability")}</p>
-              ) : teacherAvailability.length === 0 ? (
-                <p className="text-sm text-yellow-600">
-                  {t("timetables.form.noAvailabilitySet")}
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {DAYS_OF_WEEK.map((day) => {
-                    const dayAvailability = teacherAvailability.filter(
-                      (avail) => avail.day_of_week === day.value
-                    );
-                    if (dayAvailability.length === 0) return null;
-                    return (
-                      <div key={day.value} className="space-y-1">
-                        <div className="font-medium text-sm">{day.label}</div>
-                        <div className="flex flex-wrap gap-2">
-                          {dayAvailability.map((avail) => (
-                            <Button
-                              key={avail.id}
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                if (timeSlotMode === "same") {
-                                  setSameTimeSlot({
-                                    ...sameTimeSlot,
-                                    start: avail.start_time.substring(0, 5),
-                                    end: avail.end_time.substring(0, 5),
-                                  });
-                                } else {
-                                  // Add to selected days
-                                  if (!formData.days_of_week.includes(day.value)) {
-                                    handleDayToggle(day.value);
-                                  }
-                                  setDayTimeSlots({
-                                    ...dayTimeSlots,
-                                    [day.value]: {
-                                      start: avail.start_time.substring(0, 5),
-                                      end: avail.end_time.substring(0, 5),
-                                      course_id: formData.course_id || "",
-                                    },
-                                  });
-                                }
-                              }}
-                            >
-                              {avail.start_time.substring(0, 5)} - {avail.end_time.substring(0, 5)}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Days of Week */}
           <div className="space-y-3">
@@ -734,18 +865,16 @@ export function TimetableFormModal({
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label>{t("timetables.form.startTime")} *</Label>
-                      <Input
-                        type="time"
+                      <TimePicker
                         value={sameTimeSlot.start}
-                        onChange={(e) => setSameTimeSlot({ ...sameTimeSlot, start: e.target.value })}
+                        onChange={(value) => setSameTimeSlot({ ...sameTimeSlot, start: value })}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label>{t("timetables.form.endTime")} *</Label>
-                      <Input
-                        type="time"
+                      <TimePicker
                         value={sameTimeSlot.end}
-                        onChange={(e) => setSameTimeSlot({ ...sameTimeSlot, end: e.target.value })}
+                        onChange={(value) => setSameTimeSlot({ ...sameTimeSlot, end: value })}
                       />
                     </div>
                     <div className="space-y-2">
@@ -767,6 +896,50 @@ export function TimetableFormModal({
                       </Select>
                     </div>
                   </div>
+                  
+                  {/* Preview: Student Local Time */}
+                  {sameTimeSlot.start && sameTimeSlot.end && (
+                    <div className="space-y-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-md border">
+                      <Label className="text-sm font-semibold">{t("timetables.form.studentLocalTime")}</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">{t("timetables.form.startTime")}</Label>
+                          {(() => {
+                            const converted = convertTimeToStudentTimezone(sameTimeSlot.start, timeDifference);
+                            const dayText = getRelativeDayText(converted.dateOffset);
+                            return (
+                              <Input
+                                type="text"
+                                value={`${dayText} ${formatTime12Hour(converted.time)}`}
+                                disabled
+                                className="bg-white dark:bg-gray-800"
+                              />
+                            );
+                          })()}
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">{t("timetables.form.endTime")}</Label>
+                          {(() => {
+                            const converted = convertTimeToStudentTimezone(sameTimeSlot.end, timeDifference);
+                            const dayText = getRelativeDayText(converted.dateOffset);
+                            return (
+                              <Input
+                                type="text"
+                                value={`${dayText} ${formatTime12Hour(converted.time)}`}
+                                disabled
+                                className="bg-white dark:bg-gray-800"
+                              />
+                            );
+                          })()}
+                        </div>
+                      </div>
+                      <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded text-xs">
+                        <p className="font-medium mb-1">{t("timetables.form.teacherTime")}:</p>
+                        <p>{t("timetables.form.sameDay")} {formatTime12Hour(sameTimeSlot.start)} - {formatTime12Hour(sameTimeSlot.end)}</p>
+                      </div>
+                    </div>
+                  )}
+                  
                   {sameTimeSlot.start && sameTimeSlot.end && (
                     <p className="text-sm text-muted-foreground">
                       {t("timetables.form.time")}: {formatTime12Hour(sameTimeSlot.start)} - {formatTime12Hour(sameTimeSlot.end)}
@@ -789,26 +962,24 @@ export function TimetableFormModal({
                       <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">
                           <Label>{t("timetables.form.startTime")} *</Label>
-                          <Input
-                            type="time"
+                          <TimePicker
                             value={daySlot.start}
-                            onChange={(e) =>
+                            onChange={(value) =>
                               setDayTimeSlots({
                                 ...dayTimeSlots,
-                                [day]: { ...daySlot, start: e.target.value },
+                                [day]: { ...daySlot, start: value },
                               })
                             }
                           />
                         </div>
                         <div className="space-y-2">
                           <Label>{t("timetables.form.endTime")} *</Label>
-                          <Input
-                            type="time"
+                          <TimePicker
                             value={daySlot.end}
-                            onChange={(e) =>
+                            onChange={(value) =>
                               setDayTimeSlots({
                                 ...dayTimeSlots,
-                                [day]: { ...daySlot, end: e.target.value },
+                                [day]: { ...daySlot, end: value },
                               })
                             }
                           />
@@ -837,6 +1008,50 @@ export function TimetableFormModal({
                           </Select>
                         </div>
                       </div>
+                      
+                      {/* Preview: Student Local Time */}
+                      {daySlot.start && daySlot.end && (
+                        <div className="space-y-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-md border mt-4">
+                          <Label className="text-sm font-semibold">{t("timetables.form.studentLocalTime")}</Label>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">{t("timetables.form.startTime")}</Label>
+                              {(() => {
+                                const converted = convertTimeToStudentTimezone(daySlot.start, timeDifference);
+                                const dayText = getRelativeDayText(converted.dateOffset);
+                                return (
+                                  <Input
+                                    type="text"
+                                    value={`${dayText} ${formatTime12Hour(converted.time)}`}
+                                    disabled
+                                    className="bg-white dark:bg-gray-800"
+                                  />
+                                );
+                              })()}
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">{t("timetables.form.endTime")}</Label>
+                              {(() => {
+                                const converted = convertTimeToStudentTimezone(daySlot.end, timeDifference);
+                                const dayText = getRelativeDayText(converted.dateOffset);
+                                return (
+                                  <Input
+                                    type="text"
+                                    value={`${dayText} ${formatTime12Hour(converted.time)}`}
+                                    disabled
+                                    className="bg-white dark:bg-gray-800"
+                                  />
+                                );
+                              })()}
+                            </div>
+                          </div>
+                          <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded text-xs">
+                            <p className="font-medium mb-1">{t("timetables.form.teacherTime")}:</p>
+                            <p>{t("timetables.form.sameDay")} {formatTime12Hour(daySlot.start)} - {formatTime12Hour(daySlot.end)}</p>
+                          </div>
+                        </div>
+                      )}
+                      
                       {daySlot.start && daySlot.end && (
                         <p className="text-sm text-muted-foreground mt-2">
                           {t("timetables.form.time")}: {formatTime12Hour(daySlot.start)} - {formatTime12Hour(daySlot.end)}
@@ -847,6 +1062,58 @@ export function TimetableFormModal({
                 })}
               </div>
             )}
+
+          {/* Time Difference */}
+          <div className="space-y-2">
+            <Label>{t("timetables.form.timeDifference")} *</Label>
+            <div className="flex items-center gap-2">
+              <Select
+                value={timeDifference >= 0 ? "plus" : "minus"}
+                onValueChange={(value) => {
+                  const sign = value === "plus" ? 1 : -1;
+                  setTimeDifference(Math.abs(timeDifference) * sign);
+                }}
+              >
+                <SelectTrigger className="w-16">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="plus">+</SelectItem>
+                  <SelectItem value="minus">-</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                type="number"
+                value={Math.abs(timeDifference)}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 0;
+                  const sign = timeDifference >= 0 ? 1 : -1;
+                  // Clamp between 0 and 720
+                  const clamped = Math.max(0, Math.min(720, val));
+                  setTimeDifference(clamped * sign);
+                }}
+                placeholder="0"
+                className="w-32"
+                min="0"
+                max="720"
+                step="15"
+              />
+              <span className="text-sm text-muted-foreground">
+                {t("timetables.form.minutes")}
+                {timeDifference > 0 && ` (${t("timetables.form.studentAhead")})`}
+                {timeDifference < 0 && ` (${t("timetables.form.studentBehind")})`}
+                {timeDifference === 0 && ` (${t("timetables.form.sameTime")})`}
+              </span>
+            </div>
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p>{t("timetables.form.timeDifferenceHint")}</p>
+              {timeDifference !== 0 && (
+                <p className="font-medium">
+                  {Math.abs(timeDifference)} {t("timetables.form.minutes")} = {Math.abs(Math.round(timeDifference / 60 * 10) / 10)} {t("timetables.form.hours")}
+                </p>
+              )}
+            </div>
+          </div>
 
           {/* Timezones */}
           <div className="grid grid-cols-2 gap-4">

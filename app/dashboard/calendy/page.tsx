@@ -10,20 +10,29 @@ import {
     ChevronLeft,
     ChevronRight,
     CalendarClock,
-    Users,
     GraduationCap,
-    Sparkles,
+    Download,
+    FileSpreadsheet,
+    FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ClassInstance } from "@/lib/api/types";
 import { ClassService } from "@/lib/services/class.service";
 import { useLanguage } from "@/contexts/language-context";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { format, startOfToday, parseISO, addDays, subDays } from "date-fns";
+import { format, startOfToday, parseISO, addDays, subDays, startOfWeek, endOfWeek } from "date-fns";
+import { ar, enUS } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import * as XLSX from "xlsx";
 
 // Generate time slots for 24 hours in 1-hour intervals  
 const generateTimeSlots = () => {
@@ -43,17 +52,19 @@ const generateTimeSlots = () => {
 const TIME_SLOTS = generateTimeSlots();
 
 export default function CalendyPage() {
-    const { t, direction } = useLanguage();
+    const { t, direction, language } = useLanguage();
     const [selectedDate, setSelectedDate] = useState(startOfToday());
     const [classes, setClasses] = useState<ClassInstance[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [currentTime, setCurrentTime] = useState(new Date());
+    const [isExporting, setIsExporting] = useState(false);
+    const dateLocale = language === "ar" ? ar : enUS;
 
     // Update current time every minute
     useEffect(() => {
         const interval = setInterval(() => {
             setCurrentTime(new Date());
-        }, 60000); // Update every minute
+        }, 60000);
         return () => clearInterval(interval);
     }, []);
 
@@ -87,6 +98,29 @@ export default function CalendyPage() {
     useEffect(() => {
         fetchClasses();
     }, [selectedDate]);
+
+    // Fetch classes for week
+    const fetchWeekClasses = async () => {
+        try {
+            const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 });
+            const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 0 });
+            const response = await ClassService.getClasses({
+                start_date: format(weekStart, "yyyy-MM-dd"),
+                end_date: format(weekEnd, "yyyy-MM-dd"),
+                per_page: 1000,
+            });
+
+            return response.data.filter((classItem) => {
+                if (classItem.timetable) {
+                    return classItem.timetable.status === "active";
+                }
+                return true;
+            });
+        } catch (err) {
+            console.error("Failed to fetch week classes:", err);
+            return [];
+        }
+    };
 
     // Navigate to previous/next day
     const goToPreviousDay = () => setSelectedDate(subDays(selectedDate, 1));
@@ -131,15 +165,15 @@ export default function CalendyPage() {
     const getStatusLabel = (status: ClassInstance["status"]) => {
         switch (status) {
             case "attended":
-                return "Attended";
+                return language === "ar" ? "حضر" : "Attended";
             case "pending":
-                return "Pending";
+                return language === "ar" ? "قيد الانتظار" : "Pending";
             case "cancelled_by_student":
-                return "Cancelled (Student)";
+                return language === "ar" ? "ألغى الطالب" : "Cancelled (Student)";
             case "cancelled_by_teacher":
-                return "Cancelled (Teacher)";
+                return language === "ar" ? "ألغى المعلم" : "Cancelled (Teacher)";
             case "absent_student":
-                return "Absent";
+                return language === "ar" ? "غائب" : "Absent";
             default:
                 return status;
         }
@@ -152,6 +186,96 @@ export default function CalendyPage() {
         return today === selectedDateStr && currentTime.getHours() === hour;
     };
 
+    // Export to Excel
+    const exportToExcel = async (classesToExport: ClassInstance[], filename: string) => {
+        try {
+            setIsExporting(true);
+            const data = classesToExport.map((classItem) => ({
+                [t("calendar.date")]: format(parseISO(classItem.class_date), "yyyy-MM-dd", { locale: dateLocale }),
+                [t("calendar.time")]: `${formatTime12Hour(classItem.start_time)} - ${formatTime12Hour(classItem.end_time)}`,
+                [t("calendar.student")]: classItem.student?.full_name || "N/A",
+                [t("calendar.teacher")]: (classItem.teacher as any)?.user?.name || "N/A",
+                [t("calendar.course")]: classItem.course?.name || "N/A",
+                [t("calendar.status")]: getStatusLabel(classItem.status),
+                [language === "ar" ? "المدة (دقيقة)" : "Duration (min)"]: classItem.duration,
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, language === "ar" ? "الحصص" : "Classes");
+            
+            // Set column widths
+            const colWidths = [
+                { wch: 12 }, // Date
+                { wch: 20 }, // Time
+                { wch: 25 }, // Student
+                { wch: 25 }, // Teacher
+                { wch: 20 }, // Course
+                { wch: 15 }, // Status
+                { wch: 12 }, // Duration
+            ];
+            ws["!cols"] = colWidths;
+
+            XLSX.writeFile(wb, `${filename}.xlsx`);
+        } catch (err) {
+            console.error("Failed to export to Excel:", err);
+            alert(t("calendy.exportFailedExcel"));
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    // Export to PDF using Laravel backend
+    const exportToPDF = async (startDate: string, endDate: string, filename: string) => {
+        try {
+            setIsExporting(true);
+            const blob = await ClassService.downloadPdf({
+                start_date: startDate,
+                end_date: endDate,
+            });
+            
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${filename}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (err) {
+            console.error("Failed to export to PDF:", err);
+            alert(t("calendy.exportFailedPdf"));
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    // Export today's classes
+    const handleExportToday = async (exportFormat: "excel" | "pdf") => {
+        const dateStr = format(selectedDate, "yyyy-MM-dd");
+        const filename = `classes-today-${dateStr}`;
+        if (exportFormat === "excel") {
+            await exportToExcel(classes, filename);
+        } else {
+            await exportToPDF(dateStr, dateStr, filename);
+        }
+    };
+
+    // Export week's classes
+    const handleExportWeek = async (exportFormat: "excel" | "pdf") => {
+        const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 });
+        const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 0 });
+        const startDateStr = format(weekStart, "yyyy-MM-dd");
+        const endDateStr = format(weekEnd, "yyyy-MM-dd");
+        const filename = `classes-week-${startDateStr}-to-${endDateStr}`;
+        if (exportFormat === "excel") {
+            const weekClasses = await fetchWeekClasses();
+            await exportToExcel(weekClasses, filename);
+        } else {
+            await exportToPDF(startDateStr, endDateStr, filename);
+        }
+    };
+
     return (
         <div className="space-y-6 pb-8">
             {/* Header */}
@@ -160,34 +284,88 @@ export default function CalendyPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="relative"
             >
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-blue-500/10 rounded-2xl blur-3xl" />
-                <Card className="relative p-5 border-2 border-purple-500/20 bg-white/80 backdrop-blur-sm overflow-hidden">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 rounded-2xl blur-3xl" />
+                <Card className="relative p-6 border-2 border-primary/20 bg-white/90 backdrop-blur-sm overflow-hidden shadow-lg">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
                     <div className="relative">
-                        <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-4">
                                 <motion.div
-                                    whileHover={{ scale: 1.1, rotate: 5 }}
-                                    className="p-2.5 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 shadow-lg shadow-purple-500/50"
+                                    whileHover={{ scale: 1.05 }}
+                                    className="p-3 rounded-xl bg-gradient-to-br from-primary to-secondary shadow-lg"
                                 >
-                                    <CalendarClock className="h-7 w-7 text-white" />
+                                    <CalendarClock className="h-6 w-6 text-white" />
                                 </motion.div>
                                 <div>
-                                    <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                                        Calendy
+                                    <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                                        {t("calendy.title")}
                                     </h1>
-                                    <p className="text-muted-foreground text-sm mt-0.5">
-                                        Your daily schedule at a glance
+                                    <p className="text-muted-foreground text-sm mt-1">
+                                        {t("calendy.subtitle")}
                                     </p>
                                 </div>
                             </div>
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ delay: 0.2 }}
-                            >
-                                <Sparkles className="h-7 w-7 text-purple-500 animate-pulse" />
-                            </motion.div>
+                            
+                            {/* Export Buttons */}
+                            <div className="flex items-center gap-2">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            className="gap-2 border-primary/20 hover:bg-primary/10"
+                                            disabled={isExporting}
+                                        >
+                                            <Download className="h-4 w-4" />
+                                            {t("calendy.exportToday")}
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem
+                                            onClick={() => handleExportToday("excel")}
+                                            disabled={isExporting || classes.length === 0}
+                                        >
+                                            <FileSpreadsheet className="h-4 w-4 mr-2" />
+                                            {language === "ar" ? "Excel" : "Excel"}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={() => handleExportToday("pdf")}
+                                            disabled={isExporting || classes.length === 0}
+                                        >
+                                            <FileText className="h-4 w-4 mr-2" />
+                                            {language === "ar" ? "PDF" : "PDF"}
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                                
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="default"
+                                            className="gap-2 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white"
+                                            disabled={isExporting}
+                                        >
+                                            <Download className="h-4 w-4" />
+                                            {t("calendy.exportWeek")}
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem
+                                            onClick={() => handleExportWeek("excel")}
+                                            disabled={isExporting}
+                                        >
+                                            <FileSpreadsheet className="h-4 w-4 mr-2" />
+                                            {language === "ar" ? "Excel" : "Excel"}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={() => handleExportWeek("pdf")}
+                                            disabled={isExporting}
+                                        >
+                                            <FileText className="h-4 w-4 mr-2" />
+                                            {language === "ar" ? "PDF" : "PDF"}
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
                         </div>
 
                         {/* Date Navigation */}
@@ -196,7 +374,7 @@ export default function CalendyPage() {
                                 variant="outline"
                                 size="icon"
                                 onClick={goToPreviousDay}
-                                className="rounded-xl hover:bg-purple-50 hover:border-purple-300 transition-all"
+                                className="rounded-lg hover:bg-primary/10 hover:border-primary/30 transition-all"
                             >
                                 <ChevronLeft className="h-5 w-5" />
                             </Button>
@@ -206,15 +384,15 @@ export default function CalendyPage() {
                                     type="date"
                                     value={format(selectedDate, "yyyy-MM-dd")}
                                     onChange={(e) => setSelectedDate(parseISO(e.target.value))}
-                                    className="max-w-xs text-center font-semibold border-2 border-purple-200 focus:border-purple-400 rounded-xl"
+                                    className="max-w-xs text-center font-semibold border-2 border-primary/20 focus:border-primary rounded-lg"
                                 />
                                 <Button
                                     variant="secondary"
                                     onClick={goToToday}
-                                    className="rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 shadow-lg shadow-purple-500/30"
+                                    className="rounded-lg bg-gradient-to-r from-primary to-secondary text-white hover:from-primary/90 hover:to-secondary/90 shadow-md"
                                 >
                                     <Calendar className="h-4 w-4 mr-2" />
-                                    Today
+                                    {t("calendy.today")}
                                 </Button>
                             </div>
 
@@ -222,7 +400,7 @@ export default function CalendyPage() {
                                 variant="outline"
                                 size="icon"
                                 onClick={goToNextDay}
-                                className="rounded-xl hover:bg-purple-50 hover:border-purple-300 transition-all"
+                                className="rounded-lg hover:bg-primary/10 hover:border-primary/30 transition-all"
                             >
                                 <ChevronRight className="h-5 w-5" />
                             </Button>
@@ -230,12 +408,13 @@ export default function CalendyPage() {
 
                         {/* Selected Date Display */}
                         <div className="mt-4 text-center">
-                            <p className="text-xl font-bold text-gray-800">
-                                {format(selectedDate, "EEEE, MMMM dd, yyyy")}
+                            <p className="text-xl font-bold text-gray-800 dark:text-gray-200">
+                                {format(selectedDate, "EEEE, MMMM dd, yyyy", { locale: dateLocale })}
                             </p>
-                            <p className="text-sm text-muted-foreground mt-0.5">
-                                {classes.length} {classes.length === 1 ? "class" : "classes"}{" "}
-                                scheduled
+                            <p className="text-sm text-muted-foreground mt-1">
+                                {classes.length}{" "}
+                                {classes.length === 1 ? t("calendar.class") : t("calendar.classes")}{" "}
+                                {t("calendy.classesScheduled")}
                             </p>
                         </div>
                     </div>
@@ -261,16 +440,16 @@ export default function CalendyPage() {
                         return (
                             <motion.div
                                 key={slot.hour24}
-                                initial={{ opacity: 0, x: -20 }}
+                                initial={{ opacity: 0, x: direction === "rtl" ? 20 : -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: index * 0.005 }}
                             >
                                 <Card
                                     className={cn(
-                                        "p-2 transition-all duration-300 hover:shadow-md",
+                                        "p-3 transition-all duration-300 hover:shadow-md border",
                                         isCurrent &&
-                                        "border-2 border-purple-500 bg-purple-50/50 shadow-md shadow-purple-500/20",
-                                        hourClasses.length > 0 && "bg-gradient-to-r from-white to-purple-50/30"
+                                        "border-2 border-primary bg-primary/5 shadow-md shadow-primary/20",
+                                        hourClasses.length > 0 && "bg-gradient-to-r from-white to-primary/5"
                                     )}
                                 >
                                     <div className="flex items-start gap-3">
@@ -278,10 +457,10 @@ export default function CalendyPage() {
                                         <div className="w-20 flex-shrink-0">
                                             <div
                                                 className={cn(
-                                                    "text-center p-2 rounded-lg",
+                                                    "text-center p-2 rounded-lg transition-all",
                                                     isCurrent
-                                                        ? "bg-gradient-to-br from-purple-600 to-pink-600 text-white shadow-md shadow-purple-500/50"
-                                                        : "bg-gray-50 border border-gray-200"
+                                                        ? "bg-gradient-to-br from-primary to-secondary text-white shadow-md"
+                                                        : "bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
                                                 )}
                                             >
                                                 <div className={cn("text-sm font-bold", isCurrent && "text-white")}>
@@ -290,7 +469,7 @@ export default function CalendyPage() {
                                                 <div
                                                     className={cn(
                                                         "text-[10px] font-medium mt-0.5",
-                                                        isCurrent ? "text-purple-100" : "text-muted-foreground"
+                                                        isCurrent ? "text-white/90" : "text-muted-foreground"
                                                     )}
                                                 >
                                                     {slot.period}
@@ -303,7 +482,7 @@ export default function CalendyPage() {
                                             {hourClasses.length === 0 ? (
                                                 <div className="flex items-center justify-center h-full py-2">
                                                     <p className="text-xs text-muted-foreground italic">
-                                                        No classes
+                                                        {t("calendy.noClasses")}
                                                     </p>
                                                 </div>
                                             ) : (
@@ -315,65 +494,77 @@ export default function CalendyPage() {
                                                             transition={{ type: "spring", stiffness: 300 }}
                                                             className="inline-block"
                                                         >
-                                                            <Card className="p-2.5 border hover:border-purple-300 transition-all bg-white shadow-sm hover:shadow-lg hover:shadow-purple-500/10 w-fit max-w-xs">
-                                                                {/* Status Badge */}
-                                                                <div className="flex items-center justify-between mb-2">
+                                                            <Card className="p-3 border hover:border-primary/30 transition-all bg-white dark:bg-gray-800 shadow-sm hover:shadow-lg hover:shadow-primary/10 w-fit max-w-xs">
+                                                                {/* Status Badge and Time */}
+                                                                <div className="flex items-center justify-between mb-3">
                                                                     <Badge
                                                                         variant="outline"
-                                                                        className={`${getStatusColor(classItem.status)} text-[10px] font-semibold px-1.5 py-0.5`}
+                                                                        className={`${getStatusColor(classItem.status)} text-[10px] font-semibold px-2 py-0.5`}
                                                                     >
                                                                         {getStatusLabel(classItem.status)}
                                                                     </Badge>
-                                                                    <div className="text-[10px] font-medium text-gray-500">
-                                                                        {formatTime12Hour(classItem.start_time)} -{" "}
-                                                                        {formatTime12Hour(classItem.end_time)}
+                                                                </div>
+
+                                                                {/* Time Display - Prominent */}
+                                                                <div className="mb-3 p-2 rounded-lg bg-primary/5 border border-primary/20">
+                                                                    <div className="flex items-center gap-1.5 mb-1">
+                                                                        <Clock className="h-3.5 w-3.5 text-primary" />
+                                                                        <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                                                                            {formatTime12Hour(classItem.start_time)} - {formatTime12Hour(classItem.end_time)}
+                                                                        </span>
                                                                     </div>
                                                                 </div>
 
                                                                 {/* Student Info */}
-                                                                <div className="flex items-center gap-1.5 mb-1.5">
-                                                                    <div className="p-1 rounded bg-blue-500/10">
-                                                                        <User className="h-3 w-3 text-blue-600" />
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    <div className="p-1.5 rounded bg-primary/10">
+                                                                        <User className="h-3.5 w-3.5 text-primary" />
                                                                     </div>
                                                                     <div className="flex-1 min-w-0">
-                                                                        <p className="text-xs font-semibold text-gray-900 truncate">
-                                                                            {classItem.student?.full_name || "Unknown Student"}
+                                                                        <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
+                                                                            {classItem.student?.full_name || (language === "ar" ? "طالب غير معروف" : "Unknown Student")}
+                                                                        </p>
+                                                                        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                                                            {formatTime12Hour(classItem.start_time)} - {formatTime12Hour(classItem.end_time)}
                                                                         </p>
                                                                     </div>
                                                                 </div>
 
-                                                                {/* Course Info */}
-                                                                <div className="flex items-center gap-1.5 mb-1.5">
-                                                                    <div className="p-1 rounded bg-green-500/10">
-                                                                        <BookOpen className="h-3 w-3 text-green-600" />
-                                                                    </div>
-                                                                    <div className="flex-1 min-w-0">
-                                                                        <p className="text-[10px] text-gray-600 truncate">
-                                                                            {classItem.course?.name || "No Course"}
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-
-                                                                {/* Teacher Info */}
+                                                                {/* Teacher Info - More Prominent */}
                                                                 {classItem.teacher && (
-                                                                    <div className="flex items-center gap-1.5 mb-1.5">
-                                                                        <div className="p-1 rounded bg-purple-500/10">
-                                                                            <GraduationCap className="h-3 w-3 text-purple-600" />
+                                                                    <div className="flex items-center gap-2 mb-2">
+                                                                        <div className="p-1.5 rounded bg-accent/10">
+                                                                            <GraduationCap className="h-3.5 w-3.5 text-accent" />
                                                                         </div>
                                                                         <div className="flex-1 min-w-0">
-                                                                            <p className="text-[10px] text-gray-500 truncate">
+                                                                            <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
                                                                                 {(classItem.teacher as any)?.user?.name ||
-                                                                                    `Teacher ${classItem.teacher.id}`}
+                                                                                    (language === "ar" ? `المعلم ${classItem.teacher.id}` : `Teacher ${classItem.teacher.id}`)}
+                                                                            </p>
+                                                                            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                                                                {formatTime12Hour(classItem.start_time)} - {formatTime12Hour(classItem.end_time)}
                                                                             </p>
                                                                         </div>
                                                                     </div>
                                                                 )}
 
+                                                                {/* Course Info */}
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    <div className="p-1.5 rounded bg-secondary/10">
+                                                                        <BookOpen className="h-3.5 w-3.5 text-secondary" />
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-[10px] text-gray-600 dark:text-gray-300 truncate">
+                                                                            {classItem.course?.name || (language === "ar" ? "لا توجد دورة" : "No Course")}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+
                                                                 {/* Duration */}
-                                                                <div className="mt-2 pt-2 border-t border-gray-100">
-                                                                    <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
-                                                                        <Clock className="h-2.5 w-2.5" />
-                                                                        <span>{classItem.duration} min</span>
+                                                                <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                                                                    <div className="flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400">
+                                                                        <Clock className="h-3 w-3" />
+                                                                        <span>{classItem.duration} {language === "ar" ? "دقيقة" : "min"}</span>
                                                                     </div>
                                                                 </div>
                                                             </Card>
@@ -397,20 +588,20 @@ export default function CalendyPage() {
                     animate={{ opacity: 1, scale: 1 }}
                     className="text-center py-16"
                 >
-                    <Card className="p-12 border-2 border-dashed border-gray-300 bg-gradient-to-br from-purple-50/50 to-pink-50/50">
+                    <Card className="p-12 border-2 border-dashed border-gray-300 dark:border-gray-700 bg-gradient-to-br from-primary/5 to-secondary/5">
                         <motion.div
                             animate={{ y: [0, -10, 0] }}
                             transition={{ duration: 2, repeat: Infinity }}
                             className="inline-block mb-6"
                         >
-                            <CalendarClock className="h-20 w-20 text-purple-300" />
+                            <CalendarClock className="h-20 w-20 text-primary/40" />
                         </motion.div>
-                        <h3 className="text-2xl font-bold text-gray-700 mb-2">
-                            No Classes Scheduled
+                        <h3 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-2">
+                            {t("calendy.noClassesScheduled")}
                         </h3>
                         <p className="text-muted-foreground">
-                            There are no classes scheduled for{" "}
-                            {format(selectedDate, "MMMM dd, yyyy")}
+                            {t("calendy.noClassesScheduledFor")}{" "}
+                            {format(selectedDate, "MMMM dd, yyyy", { locale: dateLocale })}
                         </p>
                     </Card>
                 </motion.div>

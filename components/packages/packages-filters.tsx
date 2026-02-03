@@ -90,6 +90,7 @@ export function PackagesFilters({
             <SelectItem value="all">{t("packages.filterByStatus")}</SelectItem>
             <SelectItem value="active">{t("packages.active")}</SelectItem>
             <SelectItem value="finished">{t("packages.finished")}</SelectItem>
+            <SelectItem value="paid">{t("packages.paid")}</SelectItem>
           </SelectContent>
         </Select>
 

@@ -31,7 +31,7 @@ interface FinishedPackagesCardsProps {
   onSelectAll: (selected: boolean) => void;
   onSendWhatsApp: (pkg: FinishedPackage) => void;
   onViewBills: (pkg: FinishedPackage) => void;
-  onCreatePackage: (pkg: FinishedPackage) => void;
+  onMarkAsPaid: (pkg: FinishedPackage) => void;
   onDownloadPdf: (pkg: FinishedPackage) => void;
 }
 
@@ -42,7 +42,7 @@ export function FinishedPackagesCards({
   onSelectAll,
   onSendWhatsApp,
   onViewBills,
-  onCreatePackage,
+  onMarkAsPaid,
   onDownloadPdf,
 }: FinishedPackagesCardsProps) {
   const { t, direction } = useLanguage();
@@ -118,7 +118,7 @@ export function FinishedPackagesCards({
       </div>
 
       {/* Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
         {packages.map((pkg) => {
           const isSelected = selectedIds.includes(String(pkg.id));
           const billsSummary = pkg.bills_summary;
@@ -152,7 +152,7 @@ export function FinishedPackagesCards({
                 />
               </div>
 
-              <CardContent className="p-3 space-y-2.5">
+              <CardContent className="p-2.5 space-y-2">
                 {/* Student Header */}
                 <div className="flex items-start gap-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                   <div className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
@@ -186,46 +186,46 @@ export function FinishedPackagesCards({
                 {/* Package Info - Simplified Grid */}
                 <div className="grid grid-cols-3 gap-1.5">
                   <div className="bg-gray-50 dark:bg-gray-800 p-1.5 rounded-lg text-center border border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-center gap-1 mb-0.5">
-                      <Package className="h-3 w-3 text-gray-600 dark:text-gray-400" />
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                      <Package className="h-3.5 w-3.5 text-gray-600 dark:text-gray-400" />
                     </div>
-                    <p className="text-[10px] text-gray-600 dark:text-gray-400 font-medium mb-0.5">{t("packages.roundNumber") || "Round"}</p>
+                    <p className="text-[10px] text-gray-600 dark:text-gray-400 font-medium mb-1">{t("packages.roundNumber") || "Round"}</p>
                     <p className="font-bold text-sm text-gray-900 dark:text-gray-100">#{pkg.round_number}</p>
                   </div>
                   <div className="bg-gray-50 dark:bg-gray-800 p-1.5 rounded-lg text-center border border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-center gap-1 mb-0.5">
-                      <Clock className="h-3 w-3 text-gray-600 dark:text-gray-400" />
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                      <Clock className="h-3.5 w-3.5 text-gray-600 dark:text-gray-400" />
                     </div>
-                    <p className="text-[10px] text-gray-600 dark:text-gray-400 font-medium mb-0.5">{t("packages.totalHours") || "Hours"}</p>
+                    <p className="text-[10px] text-gray-600 dark:text-gray-400 font-medium mb-1">{t("packages.totalHours") || "Hours"}</p>
                     <p className="font-bold text-sm text-gray-900 dark:text-gray-100">{pkg.total_hours || 0}h</p>
                   </div>
                   <div className="bg-gray-50 dark:bg-gray-800 p-1.5 rounded-lg text-center border border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-center gap-1 mb-0.5">
-                      <Calendar className="h-3 w-3 text-gray-600 dark:text-gray-400" />
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                      <Calendar className="h-3.5 w-3.5 text-gray-600 dark:text-gray-400" />
                     </div>
-                    <p className="text-[10px] text-gray-600 dark:text-gray-400 font-medium mb-0.5">{t("packages.completionDate") || "Days"}</p>
+                    <p className="text-[10px] text-gray-600 dark:text-gray-400 font-medium mb-1">{t("packages.completionDate") || "Days"}</p>
                     <p className="font-bold text-sm text-gray-900 dark:text-gray-100">{daysSinceFinished}d</p>
                   </div>
                 </div>
 
                 {/* Bills Summary - Simplified */}
                 <div className="p-2 rounded-lg border bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-1.5">
                       <div className="p-1 rounded bg-gray-100 dark:bg-gray-700">
-                        <DollarSign className="h-3 w-3 text-gray-600 dark:text-gray-400" />
+                        <DollarSign className="h-3.5 w-3.5 text-gray-600 dark:text-gray-400" />
                       </div>
                       <span className="text-xs font-bold text-gray-700 dark:text-gray-300">
                         {t("packages.billsSummary") || "Bills"}
                       </span>
                     </div>
                     {hasUnpaidBills && (
-                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0 font-bold">
+                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5 font-bold">
                         {t("packages.unpaidAmount") || "Unpaid"}
                       </Badge>
                     )}
                   </div>
-                  <div className="space-y-0.5">
+                  <div className="space-y-1">
                     <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
                       {billsSummary.total_amount.toFixed(2)} {billsSummary.currency}
                     </p>
@@ -234,83 +234,67 @@ export function FinishedPackagesCards({
                         {t("packages.unpaidAmount")}: {billsSummary.unpaid_amount.toFixed(2)} {billsSummary.currency}
                       </p>
                     )}
-                    <p className="text-[10px] text-gray-600 dark:text-gray-400 font-medium">
-                      {billsSummary.bill_count} {t("packages.billCount") || "bills"}
-                    </p>
                   </div>
                 </div>
 
-                {/* Notification Status - Simplified */}
-                <div className="flex items-center justify-between p-2 rounded-lg border bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-2">
-                    {notificationSent ? (
-                      <div className="p-1 bg-gray-100 dark:bg-gray-700 rounded-full">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-gray-600 dark:text-gray-400" />
-                      </div>
-                    ) : (
-                      <div className="p-1 bg-gray-100 dark:bg-gray-700 rounded-full">
-                        <Bell className="h-3.5 w-3.5 text-gray-600 dark:text-gray-400" />
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-xs font-bold text-gray-700 dark:text-gray-300">
-                        {notificationSent 
-                          ? t("packages.lastNotificationSent") || "Sent"
-                          : t("packages.neverSent") || "Not Sent"}
-                      </p>
-                      {notificationSent && (
-                        <p className="text-[10px] text-gray-600 dark:text-gray-400 font-medium">
-                          {formatDateTime(pkg.last_notification_sent)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {(pkg.notification_count !== undefined && pkg.notification_count !== null) && (
-                    <Badge 
-                      variant="outline" 
-                      className="text-[10px] px-1.5 py-0 font-bold border-gray-300 text-gray-700 dark:text-gray-400 bg-gray-50 dark:bg-gray-800"
-                    >
-                      {pkg.notification_count}
-                    </Badge>
+                {/* Show Bill Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onViewBills(pkg)}
+                  className={cn(
+                    "w-full text-sm border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300",
+                    direction === "rtl" && "flex-row-reverse"
                   )}
-                </div>
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  {t("packages.showBill") || t("packages.viewBills") || "Show Bill"}
+                </Button>
 
                 {/* Action Buttons */}
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-gray-200 dark:border-gray-700">
                   <Button
                     variant="default"
                     size="sm"
                     onClick={() => onSendWhatsApp(pkg)}
-                    className="text-xs bg-teal-600 hover:bg-teal-700 text-white"
+                    className={cn(
+                      "text-sm bg-teal-600 hover:bg-teal-700 text-white",
+                      direction === "rtl" && "flex-row-reverse"
+                    )}
                   >
-                    <MessageSquare className="h-3 w-3 mr-1" />
-                    {t("packages.sendWhatsApp") || "WhatsApp"}
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    {pkg.notification_count && pkg.notification_count > 0
+                      ? t("packages.remindStudent") || "Remind"
+                      : t("packages.sendWhatsApp") || "WhatsApp"}
+                    {pkg.notification_count && pkg.notification_count > 0 && (
+                      <span className="px-1.5 py-0.5 bg-white/20 rounded text-[10px] font-bold">
+                        {pkg.notification_count}
+                      </span>
+                    )}
                   </Button>
                   <Button
                     variant="default"
                     size="sm"
-                    onClick={() => onViewBills(pkg)}
-                    className="text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={() => onMarkAsPaid(pkg)}
+                    className={cn(
+                      "text-sm bg-emerald-600 hover:bg-emerald-700 text-white",
+                      direction === "rtl" && "flex-row-reverse"
+                    )}
+                    disabled={pkg.bills_summary?.unpaid_amount === 0}
                   >
-                    <FileText className="h-3 w-3 mr-1" />
-                    {t("packages.viewBills") || "Bills"}
-                  </Button>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => onCreatePackage(pkg)}
-                    className="text-xs bg-purple-600 hover:bg-purple-700 text-white"
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    {t("packages.createNewPackage") || "New"}
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {t("packages.markAsPaid") || "Mark as Paid"}
                   </Button>
                   <Button
                     variant="default"
                     size="sm"
                     onClick={() => onDownloadPdf(pkg)}
-                    className="text-xs bg-slate-600 hover:bg-slate-700 text-white"
+                    className={cn(
+                      "text-sm bg-slate-600 hover:bg-slate-700 text-white col-span-2",
+                      direction === "rtl" && "flex-row-reverse"
+                    )}
                   >
-                    <Download className="h-3 w-3 mr-1" />
+                    <Download className="h-3.5 w-3.5" />
                     {t("packages.downloadPdf") || "PDF"}
                   </Button>
                 </div>

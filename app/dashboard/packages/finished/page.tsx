@@ -8,7 +8,8 @@ import { FinishedPackagesTable } from "@/components/packages/finished-packages-t
 import { FinishedPackagesFilters } from "@/components/packages/finished-packages-filters";
 import { PackageNotificationModal } from "@/components/packages/package-notification-modal";
 import { BulkNotificationActions } from "@/components/packages/bulk-notification-actions";
-import { PackageFormModal } from "@/components/packages/package-form-modal";
+import { MarkPaidConfirmationModal } from "@/components/packages/mark-paid-confirmation-modal";
+import { NotificationHistoryModal } from "@/components/packages/notification-history-modal";
 import { FinishedPackage, FinishedPackageFilters } from "@/lib/api/types";
 import { PackageService } from "@/lib/services/package.service";
 import { useLanguage } from "@/contexts/language-context";
@@ -47,9 +48,11 @@ export default function FinishedPackagesPage() {
   });
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [isPackageFormOpen, setIsPackageFormOpen] = useState(false);
+  const [isMarkPaidOpen, setIsMarkPaidOpen] = useState(false);
+  const [isNotificationHistoryOpen, setIsNotificationHistoryOpen] = useState(false);
+  const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
   const [notifyingPackage, setNotifyingPackage] = useState<FinishedPackage | null>(null);
-  const [creatingPackageFor, setCreatingPackageFor] = useState<FinishedPackage | null>(null);
+  const [markingPaidPackage, setMarkingPaidPackage] = useState<FinishedPackage | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -81,6 +84,20 @@ export default function FinishedPackagesPage() {
   useEffect(() => {
     fetchPackages();
   }, [filters, currentPage]);
+
+  // Listen for notification history modal open event
+  useEffect(() => {
+    const handleOpenNotificationHistory = (event: CustomEvent) => {
+      setSelectedPackageId(event.detail);
+      setIsNotificationHistoryOpen(true);
+    };
+
+    window.addEventListener('openNotificationHistory', handleOpenNotificationHistory as EventListener);
+
+    return () => {
+      window.removeEventListener('openNotificationHistory', handleOpenNotificationHistory as EventListener);
+    };
+  }, []);
 
   // Handle selection
   const handleSelect = (id: number) => {
@@ -140,29 +157,28 @@ export default function FinishedPackagesPage() {
     router.push(`/dashboard/billing?student_id=${pkg.student_id}`);
   };
 
-  // Handle create new package
-  const handleCreatePackage = (pkg: FinishedPackage) => {
-    setCreatingPackageFor(pkg);
-    setIsPackageFormOpen(true);
+  // Handle mark as paid
+  const handleMarkAsPaid = (pkg: FinishedPackage) => {
+    setMarkingPaidPackage(pkg);
+    setIsMarkPaidOpen(true);
   };
 
-  // Handle save new package
-  const handleSavePackage = async (packageData: any) => {
-    if (!creatingPackageFor) return;
+  // Confirm mark as paid
+  const handleConfirmMarkAsPaid = async () => {
+    if (!markingPaidPackage) return;
 
     try {
       setIsLoading(true);
       setError(null);
-      await PackageService.createPackage({
-        ...packageData,
-        student_id: creatingPackageFor.student_id,
-      });
+      await PackageService.markPackageAsPaid(markingPaidPackage.id);
       await fetchPackages();
-      setIsPackageFormOpen(false);
-      setCreatingPackageFor(null);
+      setIsMarkPaidOpen(false);
+      setMarkingPaidPackage(null);
+      
+      // Trigger a custom event to refresh notification count in sidebar
+      window.dispatchEvent(new CustomEvent('refreshNotificationCount'));
     } catch (err: any) {
-      setError(err.message || "Failed to create package");
-      throw err;
+      setError(err.message || "Failed to mark package as paid");
     } finally {
       setIsLoading(false);
     }
@@ -269,7 +285,7 @@ export default function FinishedPackagesPage() {
           onSelectAll={handleSelectAll}
           onSendWhatsApp={handleSendWhatsApp}
           onViewBills={handleViewBills}
-          onCreatePackage={handleCreatePackage}
+          onMarkAsPaid={handleMarkAsPaid}
           onDownloadPdf={handleDownloadPdf}
         />
       </motion.div>
@@ -306,12 +322,18 @@ export default function FinishedPackagesPage() {
         isLoading={isLoading}
       />
 
-      <PackageFormModal
-        open={isPackageFormOpen}
-        onOpenChange={setIsPackageFormOpen}
-        studentId={creatingPackageFor?.student_id}
-        onSave={handleSavePackage}
+      <MarkPaidConfirmationModal
+        open={isMarkPaidOpen}
+        onOpenChange={setIsMarkPaidOpen}
+        package={markingPaidPackage}
+        onConfirm={handleConfirmMarkAsPaid}
         isLoading={isLoading}
+      />
+
+      <NotificationHistoryModal
+        open={isNotificationHistoryOpen}
+        onOpenChange={setIsNotificationHistoryOpen}
+        packageId={selectedPackageId || 0}
       />
     </motion.div>
   );

@@ -55,7 +55,7 @@ export function TeacherFormModal({
     whatsapp: "",
     // Teacher fields
     hourly_rate: "",
-    currency: "USD",
+    currency: "EGP",
     timezone: "UTC",
     status: "active" as "active" | "inactive",
     bio: "",
@@ -109,7 +109,7 @@ export function TeacherFormModal({
         password: "",
         whatsapp: "",
         hourly_rate: "",
-        currency: "USD",
+        currency: "EGP",
         timezone: "UTC",
         status: "active",
         bio: "",
@@ -263,15 +263,21 @@ export function TeacherFormModal({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="currency">
-                  {t("teachers.currency") || "Currency"}
+                  {t("teachers.currency") || "Currency"} *
                 </Label>
-                <Input
-                  id="currency"
+                <Select
                   value={formData.currency}
-                  onChange={(e) => setFormData({ ...formData, currency: e.target.value.toUpperCase() })}
-                  maxLength={3}
-                  placeholder="USD"
-                />
+                  onValueChange={(value) => setFormData({ ...formData, currency: value })}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("teachers.selectCurrency") || "Select currency"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="EGP">{t("teachers.currencyEGP") || "Egyptian Pound (EGP)"}</SelectItem>
+                    <SelectItem value="USD">{t("teachers.currencyUSD") || "US Dollar (USD)"}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="timezone">

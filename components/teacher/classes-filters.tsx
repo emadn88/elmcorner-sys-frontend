@@ -35,6 +35,13 @@ export function ClassesFilters({
 }: ClassesFiltersProps) {
   const { t } = useLanguage();
   const hasFilters = dateFrom || dateTo || status !== "all";
+  
+  // Get today's date in YYYY-MM-DD format using local timezone (max date for filters - no future dates)
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const today = `${year}-${month}-${day}`;
 
   return (
     <Card>
@@ -67,6 +74,7 @@ export function ClassesFilters({
               type="date"
               value={dateFrom}
               onChange={(e) => onDateFromChange(e.target.value)}
+              max={today}
             />
           </div>
           <div className="space-y-2">
@@ -78,6 +86,7 @@ export function ClassesFilters({
               type="date"
               value={dateTo}
               onChange={(e) => onDateToChange(e.target.value)}
+              max={today}
             />
           </div>
           <div className="space-y-2">

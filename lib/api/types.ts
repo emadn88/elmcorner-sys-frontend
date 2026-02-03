@@ -197,7 +197,7 @@ export interface Package {
   hour_price: number;
   currency: string;
   round_number: number;
-  status: 'active' | 'finished';
+  status: 'active' | 'finished' | 'paid';  // 'finished' = pending payment, 'paid' = archived
   last_notification_sent?: string;
   notification_count?: number;
   created_at: string;
@@ -217,7 +217,7 @@ export interface FinishedPackage extends Package {
 
 export interface PackageFilters {
   search?: string;
-  status?: 'all' | 'active' | 'finished';
+  status?: 'all' | 'active' | 'finished' | 'paid';
   student_id?: number;
   date_from?: string;
   date_to?: string;
@@ -274,6 +274,7 @@ export interface Timetable {
   time_slots: TimeSlot[]; // [{day: 1, start: '10:00', end: '11:00'}]
   student_timezone: string;
   teacher_timezone: string;
+  time_difference_minutes?: number; // Manual time difference in minutes
   status: 'active' | 'paused' | 'stopped';
   student?: Student;
   teacher?: Teacher;
@@ -292,9 +293,12 @@ export interface ClassInstance {
   student_id: number;
   teacher_id: number;
   course_id: number;
-  class_date: string; // ISO date
-  start_time: string; // 'HH:mm:ss'
-  end_time: string; // 'HH:mm:ss'
+  class_date: string; // ISO date (teacher's date)
+  start_time: string; // 'HH:mm:ss' (teacher's time)
+  end_time: string; // 'HH:mm:ss' (teacher's time)
+  student_date?: string; // ISO date (student's date)
+  student_start_time?: string; // 'HH:mm:ss' (student's time)
+  student_end_time?: string; // 'HH:mm:ss' (student's time)
   duration: number; // minutes
   status: 'pending' | 'attended' | 'cancelled_by_student' | 'cancelled_by_teacher' | 'absent_student';
   cancelled_by?: number;
@@ -302,9 +306,11 @@ export interface ClassInstance {
   notes?: string;
   student_evaluation?: string;
   class_report?: string;
+  report_submitted_at?: string;
   meet_link_used?: boolean;
   meet_link_accessed_at?: string;
   cancellation_request_status?: 'pending' | 'approved' | 'rejected';
+  admin_rejection_reason?: string;
   can_enter_meet?: boolean;
   meet_link?: string;
   student?: Student;
@@ -328,6 +334,16 @@ export interface TeacherDashboardStats {
   assigned_students_count: number;
   this_month_hours: number;
   attendance_rate: number;
+  punctuality_rate: number;
+  punctuality_score: number;
+  on_time_classes: number;
+  late_classes: number;
+  very_late_classes: number;
+  report_submission_rate: number;
+  report_submission_score: number;
+  immediate_reports: number;
+  late_reports: number;
+  very_late_reports: number;
   total_hours: number;
   total_salary: number;
   total_classes: number;
@@ -366,18 +382,28 @@ export interface NotificationItem {
   type: 'package' | 'class_cancellation';
   student_name?: string;
   student_id?: number;
+  student_email?: string;
+  student_whatsapp?: string;
   package_id?: number;
   class_id?: number;
   teacher_name?: string;
   teacher_id?: number;
   course_name?: string;
+  course_id?: number;
   class_date?: string;
   start_time?: string;
+  end_time?: string;
+  student_date?: string;
+  student_start_time?: string;
+  student_end_time?: string;
+  duration?: number;
   cancellation_reason?: string;
+  admin_rejection_reason?: string;
   completion_date?: string;
   notification_sent?: boolean;
   notification_count?: number;
   status?: 'pending' | 'approved' | 'rejected';
+  class_status?: string;
   created_at: string;
   updated_at: string;
 }

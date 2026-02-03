@@ -9,13 +9,16 @@ import { FinishedPackagesCards } from "@/components/packages/finished-packages-c
 import { FinishedPackagesFilters } from "@/components/packages/finished-packages-filters";
 import { PackageNotificationModal } from "@/components/packages/package-notification-modal";
 import { BulkNotificationActions } from "@/components/packages/bulk-notification-actions";
-import { PackageFormModal } from "@/components/packages/package-form-modal";
+import { MarkPaidConfirmationModal } from "@/components/packages/mark-paid-confirmation-modal";
 import { FinishedPackage, FinishedPackageFilters, NotificationItem } from "@/lib/api/types";
 import { PackageService } from "@/lib/services/package.service";
 import { NotificationService } from "@/lib/services/notification.service";
 import { useLanguage } from "@/contexts/language-context";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { Bell, XCircle, CheckCircle2 } from "lucide-react";
+import { Bell, XCircle, CheckCircle2, FileText } from "lucide-react";
+import { CancellationRequestsTable } from "@/components/notifications/cancellation-requests-table";
+import { CancellationLogModal } from "@/components/notifications/cancellation-log-modal";
+import { NotificationHistoryModal } from "@/components/packages/notification-history-modal";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -47,15 +50,19 @@ export default function NotificationsPage() {
   const [filters, setFilters] = useState<FinishedPackageFilters>({
     search: "",
     status: "all",
-    notification_status: "all",
+    notification_status: "all", // Show all packages (sent and not sent) until marked as paid
     student_status: "all",
   });
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [isPackageFormOpen, setIsPackageFormOpen] = useState(false);
+  const [isMarkPaidOpen, setIsMarkPaidOpen] = useState(false);
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+  const [isNotificationHistoryOpen, setIsNotificationHistoryOpen] = useState(false);
+  const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
   const [notifyingPackage, setNotifyingPackage] = useState<FinishedPackage | null>(null);
-  const [creatingPackageFor, setCreatingPackageFor] = useState<FinishedPackage | null>(null);
+  const [markingPaidPackage, setMarkingPaidPackage] = useState<FinishedPackage | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSendingNotification, setIsSendingNotification] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -105,12 +112,28 @@ export default function NotificationsPage() {
     }
   }, [filters, currentPage, notificationType]);
 
+  // Listen for notification history modal open event
+  useEffect(() => {
+    const handleOpenNotificationHistory = (event: CustomEvent) => {
+      setSelectedPackageId(event.detail);
+      setIsNotificationHistoryOpen(true);
+    };
+
+    window.addEventListener('openNotificationHistory', handleOpenNotificationHistory as EventListener);
+
+    return () => {
+      window.removeEventListener('openNotificationHistory', handleOpenNotificationHistory as EventListener);
+    };
+  }, []);
+
   // Handle approve cancellation
   const handleApproveCancellation = async (id: number) => {
     try {
       setIsLoading(true);
       await NotificationService.approveCancellation(id);
       await fetchCancellations();
+      // Trigger sidebar notification count refresh
+      window.dispatchEvent(new CustomEvent('refreshNotificationCount'));
     } catch (err: any) {
       setError(err.message || "Failed to approve cancellation");
     } finally {
@@ -119,11 +142,13 @@ export default function NotificationsPage() {
   };
 
   // Handle reject cancellation
-  const handleRejectCancellation = async (id: number) => {
+  const handleRejectCancellation = async (id: number, reason: string) => {
     try {
       setIsLoading(true);
-      await NotificationService.rejectCancellation(id);
+      await NotificationService.rejectCancellation(id, reason);
       await fetchCancellations();
+      // Trigger sidebar notification count refresh
+      window.dispatchEvent(new CustomEvent('refreshNotificationCount'));
     } catch (err: any) {
       setError(err.message || "Failed to reject cancellation");
     } finally {
@@ -153,7 +178,7 @@ export default function NotificationsPage() {
     if (!notifyingPackage) return;
 
     try {
-      setIsLoading(true);
+      setIsSendingNotification(true);
       setError(null);
       await PackageService.sendNotification(notifyingPackage.id);
       await fetchPackages();
@@ -162,7 +187,7 @@ export default function NotificationsPage() {
     } catch (err: any) {
       setError(err.message || "Failed to send notification");
     } finally {
-      setIsLoading(false);
+      setIsSendingNotification(false);
     }
   };
 
@@ -189,29 +214,28 @@ export default function NotificationsPage() {
     router.push(`/dashboard/billing?student_id=${pkg.student_id}`);
   };
 
-  // Handle create new package
-  const handleCreatePackage = (pkg: FinishedPackage) => {
-    setCreatingPackageFor(pkg);
-    setIsPackageFormOpen(true);
+  // Handle mark as paid
+  const handleMarkAsPaid = (pkg: FinishedPackage) => {
+    setMarkingPaidPackage(pkg);
+    setIsMarkPaidOpen(true);
   };
 
-  // Handle save new package
-  const handleSavePackage = async (packageData: any) => {
-    if (!creatingPackageFor) return;
+  // Confirm mark as paid
+  const handleConfirmMarkAsPaid = async () => {
+    if (!markingPaidPackage) return;
 
     try {
       setIsLoading(true);
       setError(null);
-      await PackageService.createPackage({
-        ...packageData,
-        student_id: creatingPackageFor.student_id,
-      });
+      await PackageService.markPackageAsPaid(markingPaidPackage.id);
       await fetchPackages();
-      setIsPackageFormOpen(false);
-      setCreatingPackageFor(null);
+      setIsMarkPaidOpen(false);
+      setMarkingPaidPackage(null);
+      
+      // Trigger a custom event to refresh notification count in sidebar
+      window.dispatchEvent(new CustomEvent('refreshNotificationCount'));
     } catch (err: any) {
-      setError(err.message || "Failed to create package");
-      throw err;
+      setError(err.message || "Failed to mark package as paid");
     } finally {
       setIsLoading(false);
     }
@@ -348,52 +372,27 @@ export default function NotificationsPage() {
         <motion.div variants={itemVariants}>
           <Card>
             <CardHeader>
-              <CardTitle>Class Cancellation Requests</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>
+                  {t("notifications.classCancellationRequests") || "Class Cancellation Requests"}
+                </CardTitle>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsLogModalOpen(true)}
+                  className="flex items-center gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  {t("notifications.viewLog") || "View Log"}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              {cancellations.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No cancellation requests</p>
-              ) : (
-                <div className="space-y-4">
-                  {cancellations.map((item) => (
-                    <div key={item.id} className="p-4 border rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-semibold">{item.student_name}</div>
-                          <div className="text-sm text-gray-600">
-                            Teacher: {item.teacher_name} • Course: {item.course_name}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {item.class_date} at {item.start_time}
-                          </div>
-                          <div className="text-sm mt-2">
-                            <strong>Reason:</strong> {item.cancellation_reason}
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleRejectCancellation(item.class_id!)}
-                            disabled={isLoading || item.status !== "pending"}
-                          >
-                            <XCircle className="h-4 w-4 mr-2" />
-                            Reject
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => handleApproveCancellation(item.class_id!)}
-                            disabled={isLoading || item.status !== "pending"}
-                          >
-                            <CheckCircle2 className="h-4 w-4 mr-2" />
-                            Approve
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <CancellationRequestsTable
+                cancellations={cancellations}
+                onApprove={handleApproveCancellation}
+                onReject={handleRejectCancellation}
+                isLoading={isLoading}
+              />
             </CardContent>
           </Card>
         </motion.div>
@@ -416,7 +415,7 @@ export default function NotificationsPage() {
       ) : (
         (notificationType === "all" || notificationType === "packages") && (
           <motion.div variants={itemVariants}>
-            {isLoading ? (
+            {isLoading && packages.length === 0 ? (
               <div className="flex items-center justify-center py-12">
                 <LoadingSpinner />
               </div>
@@ -428,7 +427,7 @@ export default function NotificationsPage() {
                 onSelectAll={handleSelectAll}
                 onSendWhatsApp={handleSendWhatsApp}
                 onViewBills={handleViewBills}
-                onCreatePackage={handleCreatePackage}
+                onMarkAsPaid={handleMarkAsPaid}
                 onDownloadPdf={handleDownloadPdf}
               />
             )}
@@ -465,15 +464,26 @@ export default function NotificationsPage() {
         onOpenChange={setIsNotificationOpen}
         package={notifyingPackage}
         onConfirm={handleConfirmNotification}
+        isLoading={isSendingNotification}
+      />
+
+      <MarkPaidConfirmationModal
+        open={isMarkPaidOpen}
+        onOpenChange={setIsMarkPaidOpen}
+        package={markingPaidPackage}
+        onConfirm={handleConfirmMarkAsPaid}
         isLoading={isLoading}
       />
 
-      <PackageFormModal
-        open={isPackageFormOpen}
-        onOpenChange={setIsPackageFormOpen}
-        studentId={creatingPackageFor?.student_id}
-        onSave={handleSavePackage}
-        isLoading={isLoading}
+      <CancellationLogModal
+        open={isLogModalOpen}
+        onOpenChange={setIsLogModalOpen}
+      />
+
+      <NotificationHistoryModal
+        open={isNotificationHistoryOpen}
+        onOpenChange={setIsNotificationHistoryOpen}
+        packageId={selectedPackageId || 0}
       />
     </motion.div>
   );

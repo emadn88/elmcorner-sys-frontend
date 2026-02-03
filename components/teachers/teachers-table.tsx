@@ -35,6 +35,7 @@ interface TeachersTableProps {
   onViewDetails?: (teacher: Teacher) => void;
   onSendWhatsApp?: (teacher: Teacher) => void;
   onViewCredentials?: (teacher: Teacher) => void;
+  onViewRates?: (teacher: Teacher) => void;
   sendingWhatsAppId?: number | null;
 }
 
@@ -50,6 +51,7 @@ export function TeachersTable({
   onViewDetails,
   onSendWhatsApp,
   onViewCredentials,
+  onViewRates,
   sendingWhatsAppId,
 }: TeachersTableProps) {
   const { t, direction } = useLanguage();
@@ -87,6 +89,9 @@ export function TeachersTable({
             <TableHead>{t("teachers.email") || "Email"}</TableHead>
             <TableHead>{t("teachers.courses") || "Courses"}</TableHead>
             <TableHead>{t("teachers.hourlyRate") || "Hourly Rate"}</TableHead>
+            <TableHead>{t("teacher.attendanceRate") || "Attendance Rate"}</TableHead>
+            <TableHead>{t("teacher.punctualityRate") || "Punctuality Rate"}</TableHead>
+            <TableHead>{t("teacher.reportSubmissionRate") || "Report Submission Rate"}</TableHead>
             <TableHead>{t("teachers.status") || "Status"}</TableHead>
             <TableHead className={cn("w-[70px]", direction === "rtl" ? "text-left" : "text-right")}>
               {t("teachers.actions") || "Actions"}
@@ -96,7 +101,7 @@ export function TeachersTable({
         <TableBody>
           {teachers.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="h-24 text-center">
+              <TableCell colSpan={10} className="h-24 text-center">
                 <div className="flex flex-col items-center justify-center gap-2">
                   <p className="text-sm text-gray-500">
                     {t("teachers.noTeachersFound") || "No teachers found"}
@@ -147,6 +152,72 @@ export function TeachersTable({
                   <div className="text-sm text-gray-600">
                     {teacher.hourly_rate} {teacher.currency}
                   </div>
+                </TableCell>
+                <TableCell>
+                  {onViewRates ? (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "cursor-pointer hover:opacity-80 transition-opacity text-sm font-semibold px-3 py-1",
+                        (teacher.attendance_rate || 0) >= 80
+                          ? "bg-green-100 text-green-700 border-green-300 hover:bg-green-200"
+                          : (teacher.attendance_rate || 0) >= 60
+                          ? "bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200"
+                          : "bg-red-100 text-red-700 border-red-300 hover:bg-red-200"
+                      )}
+                      onClick={() => onViewRates(teacher)}
+                    >
+                      {teacher.attendance_rate?.toFixed(1) || "0"}%
+                    </Badge>
+                  ) : (
+                    <div className="text-sm font-medium">
+                      {teacher.attendance_rate?.toFixed(1) || "0"}%
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {onViewRates ? (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "cursor-pointer hover:opacity-80 transition-opacity text-sm font-semibold px-3 py-1",
+                        (teacher.punctuality_rate || 0) >= 80
+                          ? "bg-green-100 text-green-700 border-green-300 hover:bg-green-200"
+                          : (teacher.punctuality_rate || 0) >= 60
+                          ? "bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200"
+                          : "bg-red-100 text-red-700 border-red-300 hover:bg-red-200"
+                      )}
+                      onClick={() => onViewRates(teacher)}
+                    >
+                      {teacher.punctuality_rate?.toFixed(1) || "0"}%
+                    </Badge>
+                  ) : (
+                    <div className="text-sm font-medium">
+                      {teacher.punctuality_rate?.toFixed(1) || "0"}%
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {onViewRates ? (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "cursor-pointer hover:opacity-80 transition-opacity text-sm font-semibold px-3 py-1",
+                        (teacher.report_submission_rate || 0) >= 80
+                          ? "bg-green-100 text-green-700 border-green-300 hover:bg-green-200"
+                          : (teacher.report_submission_rate || 0) >= 60
+                          ? "bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200"
+                          : "bg-red-100 text-red-700 border-red-300 hover:bg-red-200"
+                      )}
+                      onClick={() => onViewRates(teacher)}
+                    >
+                      {teacher.report_submission_rate?.toFixed(1) || "0"}%
+                    </Badge>
+                  ) : (
+                    <div className="text-sm font-medium">
+                      {teacher.report_submission_rate?.toFixed(1) || "0"}%
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell>{getStatusBadge(teacher.status)}</TableCell>
                 <TableCell>

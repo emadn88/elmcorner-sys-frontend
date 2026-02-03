@@ -26,6 +26,12 @@ export interface Teacher {
   courses?: Course[];
   created_at: string;
   updated_at: string;
+  punctuality_rate?: number;
+  punctuality_score?: number;
+  report_submission_rate?: number;
+  report_submission_score?: number;
+  attendance_rate?: number;
+  attendance_score?: number;
 }
 
 export interface TeacherProfile {

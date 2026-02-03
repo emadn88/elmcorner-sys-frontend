@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { motion } from "framer-motion";
 import { 
   Clock, 
@@ -13,13 +13,6 @@ import {
 import { format, isToday, isSameDay, parseISO } from "date-fns";
 import { ClassInstance } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/language-context";
@@ -112,8 +105,6 @@ export function DailyCalendarView({
   isLoading = false,
 }: DailyCalendarViewProps) {
   const { language, t } = useLanguage();
-  const [selectedClass, setSelectedClass] = useState<ClassInstance | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const dayClasses = useMemo(() => {
     return classes.filter((classItem) => {
@@ -269,17 +260,13 @@ export function DailyCalendarView({
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     className={cn(
-                      "absolute left-2 right-2 rounded-lg border-2 shadow-md cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] z-20",
+                      "absolute left-2 right-2 rounded-lg border-2 shadow-md z-20",
                       getStatusColor(classItem.status)
                     )}
                     style={{
                       top: `${top}px`,
                       height: `${height}px`,
                       minHeight: "60px",
-                    }}
-                    onClick={() => {
-                      setSelectedClass(classItem);
-                      setIsModalOpen(true);
                     }}
                   >
                     <div className="p-3 h-full flex flex-col justify-between text-white">
@@ -317,23 +304,6 @@ export function DailyCalendarView({
         </div>
       </div>
 
-      {/* Class Details Modal */}
-      {selectedClass && (
-        <ClassDetailsModal
-          open={isModalOpen}
-          onOpenChange={(open) => {
-            setIsModalOpen(open);
-            if (!open) setSelectedClass(null);
-          }}
-          classItem={selectedClass as any}
-          onUpdate={() => {
-            // Refresh will be handled by parent component
-            if (onDateChange) {
-              onDateChange(currentDate);
-            }
-          }}
-        />
-      )}
     </>
   );
 }
