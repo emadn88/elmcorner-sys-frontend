@@ -1108,6 +1108,7 @@ export interface Bill {
     };
   };
   package?: Package;
+  classes?: any[];
 }
 
 export interface BillItem {

@@ -500,7 +500,7 @@ export default function BillingPage() {
                           <TableCell className="py-4">
                             <div className="space-y-1">
                               <div className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
-                                {bill.student?.full_name || "Unknown Student"}
+                                {bill.student?.student?.full_name || "Unknown Student"}
                               </div>
                               {bill.is_custom && (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
@@ -643,7 +643,7 @@ export default function BillingPage() {
                           <TableCell className="py-4">
                             <div className="space-y-1">
                               <div className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
-                                {bill.student?.full_name || "Unknown Student"}
+                                {bill.student?.student?.full_name || "Unknown Student"}
                               </div>
                               {bill.is_custom && (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
