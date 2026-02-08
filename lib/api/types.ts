@@ -1145,7 +1145,7 @@ export interface BillingFilters {
   year?: number;
   month?: number;
   status?: 'pending' | 'sent' | 'paid' | ('pending' | 'sent' | 'paid')[];
-  student_id?: number;
+  student_id?: number | number[];
   teacher_id?: number;
   is_custom?: boolean;
 }
@@ -1166,7 +1166,7 @@ export interface BillingResponse {
 }
 
 export interface CreateCustomBillData {
-  student_id: number;
+  student_id?: number;
   amount: number;
   currency?: string;
   bill_date?: string;
@@ -1178,4 +1178,5 @@ export interface CreateCustomBillData {
 export interface MarkBillPaidData {
   payment_method: string;
   payment_date?: string;
+  payment_reason?: string;
 }

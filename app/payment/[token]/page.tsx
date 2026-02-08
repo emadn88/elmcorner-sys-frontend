@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -18,8 +18,15 @@ import {
 import { BillingService } from "@/lib/services/billing.service";
 import { BillDetails } from "@/lib/api/types";
 
+declare global {
+  interface Window {
+    paypal?: any;
+  }
+}
+
 export default function PaymentPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const token = params.token as string;
 
   const [bill, setBill] = useState<BillDetails | null>(null);
@@ -28,12 +35,108 @@ export default function PaymentPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [paypalLoaded, setPaypalLoaded] = useState(false);
+  const paypalButtonContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (token) {
       loadBill();
     }
   }, [token]);
+
+  // Load PayPal SDK
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !window.paypal && bill) {
+      const script = document.createElement('script');
+      // Use sandbox client ID for now (should be in env in production)
+      const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || 'AeHgsV16i6_h7mR3IZz0l0mavTwbOdJilngxZ_q1KsGlUjHS-v4YZCfnk2_xgAsSjn9bSvWu_O-Y3r2d';
+      script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${bill.currency || 'USD'}&intent=capture&enable-funding=venmo,card`;
+      script.async = true;
+      script.onload = () => setPaypalLoaded(true);
+      script.onerror = () => {
+        setError('Failed to load PayPal. Please refresh the page.');
+        setPaypalLoaded(false);
+      };
+      document.body.appendChild(script);
+      return () => {
+        if (document.body.contains(script)) {
+          document.body.removeChild(script);
+        }
+      };
+    } else if (window.paypal) {
+      setPaypalLoaded(true);
+    }
+  }, [bill]);
+
+  // Initialize PayPal Smart Buttons
+  useEffect(() => {
+    if (!paypalLoaded || !window.paypal || !bill || bill.status === 'paid' || !paypalButtonContainerRef.current) {
+      return;
+    }
+
+    // Clear any existing buttons
+    paypalButtonContainerRef.current.innerHTML = '';
+
+    window.paypal.Buttons({
+      style: {
+        layout: 'vertical',
+        color: 'blue',
+        shape: 'rect',
+        label: 'paypal',
+      },
+      createOrder: async (data: any, actions: any) => {
+        try {
+          setIsProcessing(true);
+          setError(null);
+          if (!bill) {
+            throw new Error('Bill information not loaded');
+          }
+          const result = await BillingService.createPayPalOrder(token, bill.total_amount || bill.amount, bill.currency || 'USD');
+          return result.order_id;
+        } catch (err: any) {
+          setError(err.message || 'Failed to create PayPal order');
+          setIsProcessing(false);
+          throw err;
+        }
+      },
+      onApprove: async (data: any, actions: any) => {
+        try {
+          setIsProcessing(true);
+          setError(null);
+          await BillingService.capturePayPalOrder(token, data.orderID);
+          setPaymentSuccess(true);
+          await loadBill();
+        } catch (err: any) {
+          setError(err.message || 'Failed to process payment');
+        } finally {
+          setIsProcessing(false);
+        }
+      },
+      onError: (err: any) => {
+        setError('An error occurred with PayPal. Please try again.');
+        setIsProcessing(false);
+      },
+      onCancel: () => {
+        setError('Payment was cancelled. Please try again if you wish to complete the payment.');
+        setIsProcessing(false);
+      },
+    }).render(paypalButtonContainerRef.current);
+
+    setIsProcessing(false);
+  }, [paypalLoaded, bill, token]);
+
+  // Handle PayPal return (for old redirect flow - keeping for backward compatibility)
+  useEffect(() => {
+    const paypalStatus = searchParams?.get('paypal');
+    const paymentId = searchParams?.get('paymentId');
+    const payerId = searchParams?.get('PayerID');
+
+    if (paypalStatus === 'success' && paymentId && payerId && token) {
+      handlePayPalExecute(paymentId, payerId);
+    } else if (paypalStatus === 'cancel') {
+      setError('Payment was cancelled. Please try again if you wish to complete the payment.');
+    }
+  }, [searchParams, token]);
 
   const loadBill = async () => {
     try {
@@ -154,6 +257,40 @@ export default function PaymentPage() {
       await loadBill();
     } catch (err: any) {
       setError(err.message || "Failed to process payment");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handlePayPalPayment = async () => {
+    if (!token) return;
+
+    try {
+      setIsProcessing(true);
+      setError(null);
+      const result = await BillingService.createPayPalPayment(token);
+      // Redirect to PayPal
+      window.location.href = result.approval_url;
+    } catch (err: any) {
+      setError(err.message || "Failed to create PayPal payment");
+      setIsProcessing(false);
+    }
+  };
+
+  const handlePayPalExecute = async (paymentId: string, payerId: string) => {
+    if (!token) return;
+
+    try {
+      setIsProcessing(true);
+      setError(null);
+      await BillingService.executePayPalPayment(token, paymentId, payerId);
+      setPaymentSuccess(true);
+      // Reload bill to get updated status
+      await loadBill();
+      // Clean up URL parameters
+      window.history.replaceState({}, '', window.location.pathname);
+    } catch (err: any) {
+      setError(err.message || "Failed to execute PayPal payment");
     } finally {
       setIsProcessing(false);
     }
@@ -593,45 +730,34 @@ export default function PaymentPage() {
               {/* Payment Options */}
               {bill.status !== "paid" && (
                 <div className="mb-6">
-                  {/* Credit Card Option */}
-                  <Card className="border-2 border-gray-200 hover:border-green-500 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md bg-white">
+                  {/* PayPal Smart Buttons */}
+                  <Card className="border-2 border-gray-200 hover:border-blue-500 transition-all duration-300 shadow-sm hover:shadow-md bg-white">
                     <CardContent className="p-4 sm:p-5">
                       <div className="flex flex-col gap-3 sm:gap-4">
-                        <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="flex items-center gap-3 sm:gap-4 mb-2">
                           <div className="w-14 h-10 sm:w-16 sm:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-md relative overflow-hidden flex-shrink-0">
-                            {/* Credit Card Chip */}
-                            <div className="absolute left-1.5 top-1.5 sm:left-2 sm:top-2 w-5 h-4 sm:w-6 sm:h-5 bg-yellow-400 rounded-sm"></div>
-                            {/* Credit Card Lines */}
-                            <div className="absolute left-1.5 sm:left-2 bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 h-0.5 sm:h-1 bg-white/30 rounded"></div>
-                            <div className="absolute left-1.5 sm:left-2 bottom-3 sm:bottom-4 right-1.5 sm:right-2 h-0.5 bg-white/20 rounded"></div>
-                            {/* Credit Card Icon */}
-                            <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white/90" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/>
-                              <line x1="2" y1="10" x2="22" y2="10" stroke="currentColor" strokeWidth="2"/>
-                              <circle cx="18" cy="15" r="1.5" fill="currentColor"/>
+                            {/* PayPal Logo */}
+                            <svg className="w-10 h-10 sm:w-12 sm:h-12 text-white" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.417 1.569 1.2 3.576.704 4.713-.495 1.137-1.735 2.225-3.576 2.225h-2.224c-.26 0-.5.17-.58.412l-1.14 3.478-.02.06c-.05.15-.19.26-.35.26h-1.7a.64.64 0 0 0-.63.52l-1.24 6.1-.01.06c-.04.2-.21.34-.41.34zm.65-2.22h1.7c.26 0 .5-.17.58-.41l1.14-3.48.02-.06c.05-.15.19-.26.35-.26h2.22c3.576 0 5.69-1.81 6.48-4.713.79-2.903.26-4.713-1.14-6.282C19.536 2.225 17.528 1.682 14.958 1.682H7.498c-.26 0-.5.17-.58.41L4.944 18.897h2.782z"/>
                             </svg>
                           </div>
                           <div className="flex-1 min-w-0">
                             <h3 className="font-bold text-gray-900 mb-1 text-sm sm:text-base" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
-                              Credit Card
+                              Secure Payment
                             </h3>
                             <p className="text-xs text-gray-600 leading-relaxed" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
-                              Pay securely with your credit or debit card
+                              Pay with PayPal account or use Visa/Mastercard without an account
                             </p>
                           </div>
                         </div>
-                        <Button
-                          onClick={() => handlePaymentMethodSelect("credit_card")}
-                          disabled={isProcessing}
-                          className="w-full bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-semibold text-sm sm:text-base py-2.5 sm:py-3 shadow-md hover:shadow-lg transition-all"
-                          style={{ fontFamily: 'var(--font-inter), sans-serif' }}
-                        >
-                          {isProcessing ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            "Pay with Credit Card"
-                          )}
-                        </Button>
+                        {/* PayPal Smart Buttons Container */}
+                        <div ref={paypalButtonContainerRef} className="w-full"></div>
+                        {!paypalLoaded && (
+                          <div className="w-full py-3 text-center">
+                            <Loader2 className="h-5 w-5 animate-spin mx-auto text-gray-400" />
+                            <p className="text-xs text-gray-500 mt-2">Loading payment options...</p>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

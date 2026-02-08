@@ -288,10 +288,12 @@ export class PackageService {
   /**
    * Mark all bills for a package as paid
    */
-  static async markPackageAsPaid(packageId: number): Promise<void> {
+  static async markPackageAsPaid(packageId: number, paymentReason: string): Promise<void> {
     const response = await apiClient.post(
       API_ENDPOINTS.ADMIN.PACKAGE_MARK_PAID(packageId),
-      {}
+      {
+        payment_reason: paymentReason,
+      }
     );
 
     if (response.status !== "success") {

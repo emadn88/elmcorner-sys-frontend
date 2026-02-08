@@ -31,7 +31,13 @@ export class BillingService {
         params.append("status", filters.status);
       }
     }
-    if (filters.student_id) params.append("student_id", filters.student_id.toString());
+    if (filters.student_id) {
+      if (Array.isArray(filters.student_id)) {
+        filters.student_id.forEach((id) => params.append("student_id[]", id.toString()));
+      } else {
+        params.append("student_id", filters.student_id.toString());
+      }
+    }
     if (filters.teacher_id) params.append("teacher_id", filters.teacher_id.toString());
     if (filters.is_custom !== undefined) params.append("is_custom", filters.is_custom.toString());
 
@@ -108,18 +114,19 @@ export class BillingService {
   }
 
   /**
-   * Send bill via WhatsApp (returns wa.me URL)
+   * Send bill via WhatsApp directly to student
    */
-  static async sendViaWhatsApp(id: number): Promise<string> {
-    const response = await apiClient.post<{ wa_me_url: string }>(
-      API_ENDPOINTS.ADMIN.BILL_SEND_WHATSAPP(id)
+  static async sendViaWhatsApp(id: number, whatsappNumber?: string): Promise<void> {
+    const response = await apiClient.post<void>(
+      API_ENDPOINTS.ADMIN.BILL_SEND_WHATSAPP(id),
+      whatsappNumber ? { whatsapp_number: whatsappNumber } : {}
     );
 
-    if (response.status === "success" && response.data) {
-      return response.data.wa_me_url;
+    if (response.status === "success") {
+      return;
     }
 
-    throw new Error(response.message || "Failed to generate WhatsApp link");
+    throw new Error(response.message || "Failed to send WhatsApp message");
   }
 
   /**
@@ -236,6 +243,135 @@ export class BillingService {
 
     if (data.status !== "success") {
       throw new Error(data.message || "Failed to process payment");
+    }
+  }
+
+  /**
+   * Create PayPal payment
+   */
+  static async createPayPalPayment(token: string): Promise<{ payment_id: string; approval_url: string }> {
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+
+    const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.EXTERNAL.PAYMENT_PAYPAL_CREATE(token)}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to create PayPal payment");
+    }
+
+    const data = await response.json();
+
+    if (data.status !== "success" || !data.data) {
+      throw new Error(data.message || "Failed to create PayPal payment");
+    }
+
+    return {
+      payment_id: data.data.payment_id,
+      approval_url: data.data.approval_url,
+    };
+  }
+
+  /**
+   * Execute PayPal payment
+   */
+  static async executePayPalPayment(
+    token: string,
+    paymentId: string,
+    payerId: string
+  ): Promise<{ payment_id: string; transaction_id?: string; amount: string; currency: string }> {
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+
+    const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.EXTERNAL.PAYMENT_PAYPAL_EXECUTE(token)}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        paymentId,
+        PayerID: payerId,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to execute PayPal payment");
+    }
+
+    const data = await response.json();
+
+    if (data.status !== "success" || !data.data) {
+      throw new Error(data.message || "Failed to execute PayPal payment");
+    }
+
+    return {
+      payment_id: data.data.payment_id,
+      transaction_id: data.data.transaction_id,
+      amount: data.data.amount,
+      currency: data.data.currency,
+    };
+  }
+
+  /**
+   * Create PayPal order for Smart Buttons
+   */
+  static async createPayPalOrder(token: string, amount: number, currency: string): Promise<{ order_id: string }> {
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+
+    const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.EXTERNAL.PAYMENT_PAYPAL_ORDER(token)}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to create PayPal order");
+    }
+
+    const data = await response.json();
+
+    if (data.status !== "success" || !data.data) {
+      throw new Error(data.message || "Failed to create PayPal order");
+    }
+
+    return {
+      order_id: data.data.order_id,
+    };
+  }
+
+  /**
+   * Capture PayPal order for Smart Buttons
+   */
+  static async capturePayPalOrder(token: string, orderID: string): Promise<void> {
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+
+    const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.EXTERNAL.PAYMENT_PAYPAL_CAPTURE(token)}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ orderID }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to capture PayPal order");
+    }
+
+    const data = await response.json();
+
+    if (data.status !== "success") {
+      throw new Error(data.message || "Failed to capture PayPal order");
     }
   }
 }

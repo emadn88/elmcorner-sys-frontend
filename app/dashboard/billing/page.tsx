@@ -104,6 +104,7 @@ export default function BillingPage() {
       const data = await BillingService.getBills({
         year: selectedYear,
         month: selectedMonth,
+        // Show all bills on main page
       });
       
       // Debug logging
@@ -166,18 +167,17 @@ export default function BillingPage() {
 
   const handleSendWhatsApp = async (bill: Bill) => {
     try {
-      const waMeUrl = await BillingService.sendViaWhatsApp(bill.id);
-      window.open(waMeUrl, "_blank");
+      await BillingService.sendViaWhatsApp(bill.id);
       setNotification({
         type: "success",
-        message: "WhatsApp link opened",
+        message: t("billing.whatsAppSent") || "Bill sent via WhatsApp successfully",
       });
       setTimeout(() => setNotification(null), 3000);
       await loadBillingData();
     } catch (error: any) {
       setNotification({
         type: "error",
-        message: error.message || "Failed to send WhatsApp",
+        message: error.message || t("billing.failedToSend") || "Failed to send WhatsApp",
       });
       setTimeout(() => setNotification(null), 5000);
     }
@@ -266,7 +266,9 @@ export default function BillingPage() {
 
   const getStatusBadge = (status: string) => {
     const baseClasses = "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold transition-all";
-    switch (status) {
+    // Normalize status to handle any case variations or truncation
+    const normalizedStatus = status?.toLowerCase()?.trim() || "";
+    switch (normalizedStatus) {
       case "paid":
         return (
           <span className={cn(baseClasses, "bg-green-50 text-green-700 border border-green-200")}>
@@ -286,7 +288,7 @@ export default function BillingPage() {
           </span>
         );
       default:
-        return <span className={cn(baseClasses, "bg-gray-50 text-gray-700 border border-gray-200")}>{status}</span>;
+        return <span className={cn(baseClasses, "bg-gray-50 text-gray-700 border border-gray-200")}>{status || "Unknown"}</span>;
     }
   };
 
@@ -500,7 +502,7 @@ export default function BillingPage() {
                           <TableCell className="py-4">
                             <div className="space-y-1">
                               <div className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
-                                {bill.student?.student?.full_name || "Unknown Student"}
+                                {bill.student?.full_name || "Unknown Student"}
                               </div>
                               {bill.is_custom && (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
@@ -643,7 +645,7 @@ export default function BillingPage() {
                           <TableCell className="py-4">
                             <div className="space-y-1">
                               <div className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
-                                {bill.student?.student?.full_name || "Unknown Student"}
+                                {bill.student?.full_name || "Unknown Student"}
                               </div>
                               {bill.is_custom && (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
@@ -759,7 +761,7 @@ export default function BillingPage() {
                 <h3 className="font-semibold mb-2">
                   {t("billing.studentInformation") || "Student Information"}
                 </h3>
-                <p>{selectedBill.student?.full_name || "Unknown"}</p>
+                <p>{selectedBill.student?.full_name || selectedBill.student?.student?.full_name || "Unknown"}</p>
               </div>
               <div>
                 <h3 className="font-semibold mb-2">
@@ -787,11 +789,11 @@ export default function BillingPage() {
                     <table className="w-full text-sm">
                       <thead className="bg-gray-100">
                         <tr>
-                          <th className="p-2 text-left">{t("billing.date") || "Date"}</th>
-                          <th className="p-2 text-left">{t("billing.time") || "Time"}</th>
-                          <th className="p-2 text-left">{t("billing.duration") || "Duration"}</th>
-                          <th className="p-2 text-left">{t("billing.teacher") || "Teacher"}</th>
-                          <th className="p-2 text-left">{t("billing.cost") || "Cost"}</th>
+                          <th className={cn("p-2", direction === "rtl" ? "text-right" : "text-left")}>{t("billing.date") || "Date"}</th>
+                          <th className={cn("p-2", direction === "rtl" ? "text-right" : "text-left")}>{t("billing.time") || "Time"}</th>
+                          <th className={cn("p-2", direction === "rtl" ? "text-right" : "text-left")}>{t("billing.duration") || "Duration"}</th>
+                          <th className={cn("p-2", direction === "rtl" ? "text-right" : "text-left")}>{t("billing.teacher") || "Teacher"}</th>
+                          <th className={cn("p-2", direction === "rtl" ? "text-right" : "text-left")}>{t("billing.cost") || "Cost"}</th>
                         </tr>
                       </thead>
                       <tbody>

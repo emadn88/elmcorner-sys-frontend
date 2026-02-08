@@ -309,6 +309,7 @@ export function PackageFormModal({
                   <SelectItem value="SAR">SAR</SelectItem>
                   <SelectItem value="EUR">EUR</SelectItem>
                   <SelectItem value="GBP">GBP</SelectItem>
+                  <SelectItem value="CAD">CAD</SelectItem>
                 </SelectContent>
               </Select>
             </div>

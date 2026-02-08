@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +10,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2 } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
 import { FinishedPackage } from "@/lib/api/types";
@@ -18,7 +21,7 @@ interface MarkPaidConfirmationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   package: FinishedPackage | null;
-  onConfirm: () => void;
+  onConfirm: (reason: string) => void;
   isLoading?: boolean;
 }
 
@@ -30,9 +33,17 @@ export function MarkPaidConfirmationModal({
   isLoading = false,
 }: MarkPaidConfirmationModalProps) {
   const { t, direction } = useLanguage();
+  const [paymentReason, setPaymentReason] = useState("");
 
   const handleConfirm = () => {
-    onConfirm();
+    if (!paymentReason.trim()) return;
+    onConfirm(paymentReason);
+    setPaymentReason("");
+    onOpenChange(false);
+  };
+
+  const handleClose = () => {
+    setPaymentReason("");
     onOpenChange(false);
   };
 
@@ -102,19 +113,33 @@ export function MarkPaidConfirmationModal({
           <p className={cn("text-sm text-gray-600 dark:text-gray-400", direction === "rtl" && "text-right")}>
             {t("packages.markAsPaidWarning") || "All bills for this package will be marked as paid. This action cannot be undone."}
           </p>
+          
+          <div className="space-y-2">
+            <Label htmlFor="payment_reason">
+              {t("billing.markPaidForm.paymentReason") || "Payment Reason"} *
+            </Label>
+            <Textarea
+              id="payment_reason"
+              value={paymentReason}
+              onChange={(e) => setPaymentReason(e.target.value)}
+              rows={3}
+              placeholder={t("billing.markPaidForm.paymentReasonPlaceholder") || "Enter the reason for marking this package as paid..."}
+              className={cn(direction === "rtl" && "text-right")}
+            />
+          </div>
         </div>
 
         <DialogFooter className={cn(direction === "rtl" && "flex-row-reverse")}>
           <Button
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={handleClose}
             disabled={isLoading}
           >
             {t("packages.cancel") || "Cancel"}
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={isLoading}
+            disabled={isLoading || !paymentReason.trim()}
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
           >
             {isLoading ? (t("packages.saving") || "Saving...") : (t("packages.markAsPaid") || "Mark as Paid")}

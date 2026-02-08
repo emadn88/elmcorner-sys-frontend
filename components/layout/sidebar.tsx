@@ -35,6 +35,7 @@ import {
   TrendingUp,
   Target,
   Shield,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/hooks/use-sidebar";
@@ -136,6 +137,24 @@ const getNavGroups = (
           : undefined,
       },
       {
+        label: t("sidebar.billing"),
+        href: "/dashboard/billing",
+        icon: CreditCard,
+        permission: "view_billing",
+        children: [
+          {
+            label: t("sidebar.autoBillings") || "Auto Billings",
+            href: "/dashboard/billing/auto",
+            icon: CreditCard,
+          },
+          {
+            label: t("sidebar.customBillings") || "Custom Billings",
+            href: "/dashboard/billing/custom",
+            icon: FileText,
+          },
+        ],
+      },
+      {
         label: t("sidebar.families"),
         href: "/dashboard/families",
         icon: Users,
@@ -176,12 +195,6 @@ const getNavGroups = (
   {
     title: t("sidebar.academic"),
     items: [
-      {
-        label: t("sidebar.billing"),
-        href: "/dashboard/billing",
-        icon: CreditCard,
-        permission: "view_billing",
-      },
       {
         label: t("sidebar.duties"),
         href: "/dashboard/duties",

@@ -221,13 +221,13 @@ export default function NotificationsPage() {
   };
 
   // Confirm mark as paid
-  const handleConfirmMarkAsPaid = async () => {
+  const handleConfirmMarkAsPaid = async (reason: string) => {
     if (!markingPaidPackage) return;
 
     try {
       setIsLoading(true);
       setError(null);
-      await PackageService.markPackageAsPaid(markingPaidPackage.id);
+      await PackageService.markPackageAsPaid(markingPaidPackage.id, reason);
       await fetchPackages();
       setIsMarkPaidOpen(false);
       setMarkingPaidPackage(null);

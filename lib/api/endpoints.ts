@@ -194,6 +194,10 @@ export const API_ENDPOINTS = {
     PAYMENT: (token: string) => `/external/payment/${token}`,
     PAYMENT_PDF: (token: string) => `/external/payment/${token}/pdf`,
     PAYMENT_PROCESS: (token: string) => `/external/payment/${token}/process`,
+    PAYMENT_PAYPAL_CREATE: (token: string) => `/external/payment/${token}/paypal/create`,
+    PAYMENT_PAYPAL_EXECUTE: (token: string) => `/external/payment/${token}/paypal/execute`,
+    PAYMENT_PAYPAL_ORDER: (token: string) => `/external/payment/${token}/paypal/orders`,
+    PAYMENT_PAYPAL_CAPTURE: (token: string) => `/external/payment/${token}/paypal/orders/capture`,
     DUTY: (token: string) => `/external/duty/${token}`,
   },
 } as const;
