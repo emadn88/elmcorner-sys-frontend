@@ -1044,6 +1044,7 @@ export default function CustomBillingPage() {
                   <SelectItem value="GBP">GBP</SelectItem>
                   <SelectItem value="SAR">SAR</SelectItem>
                   <SelectItem value="AED">AED</SelectItem>
+                  <SelectItem value="CAD">CAD</SelectItem>
                 </SelectContent>
               </Select>
             </div>

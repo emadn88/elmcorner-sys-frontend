@@ -143,7 +143,20 @@ export default function TeacherTrialsPage() {
 
   const handleEnterTrial = async (trial: TrialClass) => {
     try {
-      await TeacherService.enterTrial(trial.id);
+      const result = await TeacherService.enterTrial(trial.id);
+      
+      // Redirect to zoom link if available
+      if (result.meet_link) {
+        window.open(result.meet_link, "_blank", "noopener,noreferrer");
+      } else {
+        // Fallback: try to use meet_link from trial if available
+        if (trial.meet_link) {
+          window.open(trial.meet_link, "_blank", "noopener,noreferrer");
+        } else {
+          alert(t("teacher.noMeetLink") || "Meet link not available");
+        }
+      }
+      
       await fetchTrials();
     } catch (err: any) {
       alert(err.message || "Failed to enter trial");

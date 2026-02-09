@@ -48,8 +48,8 @@ export default function PaymentPage() {
   useEffect(() => {
     if (typeof window !== 'undefined' && !window.paypal && bill) {
       const script = document.createElement('script');
-      // Use sandbox client ID for now (should be in env in production)
-      const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || 'AeHgsV16i6_h7mR3IZz0l0mavTwbOdJilngxZ_q1KsGlUjHS-v4YZCfnk2_xgAsSjn9bSvWu_O-Y3r2d';
+      // Use production client ID (from env or fallback to production)
+      const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || 'AcjSyDBXwerwjC5jpZGWA2IsDCwEYQRWuxuc23euPHvcB10bR-qILNyVBdoyBXIb1wd2Bi-1BDFNMBh1';
       script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${bill.currency || 'USD'}&intent=capture&enable-funding=venmo,card`;
       script.async = true;
       script.onload = () => setPaypalLoaded(true);

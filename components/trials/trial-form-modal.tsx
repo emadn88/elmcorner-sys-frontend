@@ -607,9 +607,8 @@ export function TrialFormModal({
                       type="date"
                       value={formData.student_date}
                       onChange={(e) => setFormData({ ...formData, student_date: e.target.value })}
-                      min={new Date().toISOString().split('T')[0]}
                       required
-                      className="bg-white/80 border-green-200 focus:border-green-400 focus:ring-green-400/20"
+                      className="bg-white border-2 border-green-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 rounded-lg px-4 py-2.5 text-base font-medium shadow-sm transition-all duration-200 hover:border-green-300"
                     />
                   </div>
                   
@@ -625,7 +624,7 @@ export function TrialFormModal({
                         value={formData.student_start_time}
                         onChange={(e) => setFormData({ ...formData, student_start_time: e.target.value })}
                         required
-                        className="bg-white/80 border-green-200 focus:border-green-400 focus:ring-green-400/20"
+                        className="bg-white border-2 border-green-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 rounded-lg px-4 py-2.5 text-base font-medium shadow-sm transition-all duration-200 hover:border-green-300"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -639,7 +638,7 @@ export function TrialFormModal({
                         value={formData.student_end_time}
                         onChange={(e) => setFormData({ ...formData, student_end_time: e.target.value })}
                         required
-                        className="bg-white/80 border-green-200 focus:border-green-400 focus:ring-green-400/20"
+                        className="bg-white border-2 border-green-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 rounded-lg px-4 py-2.5 text-base font-medium shadow-sm transition-all duration-200 hover:border-green-300"
                       />
                     </div>
                   </div>
@@ -676,9 +675,8 @@ export function TrialFormModal({
                       type="date"
                       value={formData.teacher_date}
                       onChange={(e) => setFormData({ ...formData, teacher_date: e.target.value })}
-                      min={new Date().toISOString().split('T')[0]}
                       required
-                      className="bg-white/80 border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+                      className="bg-white border-2 border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-lg px-4 py-2.5 text-base font-medium shadow-sm transition-all duration-200 hover:border-blue-300"
                     />
                   </div>
                   
@@ -694,7 +692,7 @@ export function TrialFormModal({
                         value={formData.teacher_start_time}
                         onChange={(e) => setFormData({ ...formData, teacher_start_time: e.target.value })}
                         required
-                        className="bg-white/80 border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+                        className="bg-white border-2 border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-lg px-4 py-2.5 text-base font-medium shadow-sm transition-all duration-200 hover:border-blue-300"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -708,7 +706,7 @@ export function TrialFormModal({
                         value={formData.teacher_end_time}
                         onChange={(e) => setFormData({ ...formData, teacher_end_time: e.target.value })}
                         required
-                        className="bg-white/80 border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+                        className="bg-white border-2 border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-lg px-4 py-2.5 text-base font-medium shadow-sm transition-all duration-200 hover:border-blue-300"
                       />
                     </div>
                   </div>

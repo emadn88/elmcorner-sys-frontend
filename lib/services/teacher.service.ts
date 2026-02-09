@@ -360,11 +360,17 @@ export class TeacherService {
   /**
    * Enter trial (mark as entered)
    */
-  static async enterTrial(id: number): Promise<TrialClass> {
-    const response = await apiClient.post<TrialClass>(
+  static async enterTrial(id: number): Promise<{ data: TrialClass; meet_link?: string }> {
+    const response = await apiClient.post<{ status: string; data: TrialClass; meet_link?: string }>(
       `${API_ENDPOINTS.TEACHER.TRIAL(id)}/enter-meet`
     );
-    return response.data;
+    // apiClient.post returns response.data from axios
+    // Laravel returns { status: 'success', data: {...}, meet_link: '...' }
+    // So response is { status: 'success', data: {...}, meet_link: '...' }
+    return {
+      data: response.data.data,
+      meet_link: response.data.meet_link,
+    };
   }
 
   /**
