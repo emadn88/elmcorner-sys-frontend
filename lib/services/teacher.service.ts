@@ -6,6 +6,7 @@
 import { apiClient } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
 import {
+  ApiResponse,
   TeacherDashboardStats,
   TeacherClass,
   ClassInstance,
@@ -170,13 +171,60 @@ export class TeacherService {
       class_report?: string;
       notes?: string;
       send_whatsapp: boolean;
+      image?: File | null;
+      pdf?: File | null;
     }
   ): Promise<ClassInstance> {
-    const response = await apiClient.post<ClassInstance>(
-      API_ENDPOINTS.TEACHER.CLASS_REPORT(id),
-      data
-    );
-    return response.data;
+    // Check if we have files to upload
+    const hasFiles = data.image || data.pdf;
+    
+    if (hasFiles) {
+      // Use FormData for file uploads
+      const formData = new FormData();
+      formData.append("status", data.status);
+      if (data.student_evaluation) {
+        formData.append("student_evaluation", data.student_evaluation);
+      }
+      if (data.class_report) {
+        formData.append("class_report", data.class_report);
+      }
+      if (data.notes) {
+        formData.append("notes", data.notes);
+      }
+      formData.append("send_whatsapp", data.send_whatsapp ? "1" : "0");
+      
+      if (data.image) {
+        formData.append("image", data.image);
+      }
+      if (data.pdf) {
+        formData.append("pdf", data.pdf);
+      }
+      
+      // Get axios client for FormData upload
+      const axiosClient = apiClient.getClient();
+      const response = await axiosClient.post<ApiResponse<ClassInstance>>(
+        API_ENDPOINTS.TEACHER.CLASS_REPORT(id),
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+      
+      if (response.data.status !== "success") {
+        throw new Error(response.data.message || "Failed to submit report");
+      }
+      
+      return response.data.data;
+    } else {
+      // Use regular JSON for non-file uploads
+      const response = await apiClient.post<ClassInstance>(
+        API_ENDPOINTS.TEACHER.CLASS_REPORT(id),
+        data
+      );
+      return response.data;
+    }
   }
 
   /**

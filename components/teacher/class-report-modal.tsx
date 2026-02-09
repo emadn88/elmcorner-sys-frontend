@@ -22,7 +22,8 @@ import { TeacherService } from "@/lib/services/teacher.service";
 import { TeacherClass } from "@/lib/api/types";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useLanguage } from "@/contexts/language-context";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, X, FileImage, FileText } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 interface ClassReportModalProps {
   open: boolean;
@@ -46,6 +47,8 @@ export function ClassReportModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -56,6 +59,8 @@ export function ClassReportModal({
       setNotes("");
       setCancellationReason("");
       setError(null);
+      setImageFile(null);
+      setPdfFile(null);
     }
   }, [open]);
 
@@ -77,6 +82,8 @@ export function ClassReportModal({
           class_report: reportDetails,
           notes: notes,
           send_whatsapp: sendWhatsApp,
+          image: imageFile,
+          pdf: pdfFile,
         });
       } else {
         if (!cancellationReason.trim()) {
@@ -193,6 +200,95 @@ export function ClassReportModal({
                     className="mt-2"
                     rows={3}
                   />
+                </div>
+
+                {/* Attachments Section */}
+                <div className="space-y-4 pt-2 border-t">
+                  <Label className="text-base font-semibold">
+                    {t("teacher.attachments") || "Attachments (Optional)"}
+                  </Label>
+                  
+                  {/* Image Attachment */}
+                  <div>
+                    <Label className="text-sm text-gray-600 flex items-center gap-2">
+                      <FileImage className="h-4 w-4" />
+                      {t("teacher.attachImage") || "Attach Image"}
+                    </Label>
+                    <div className="mt-2 flex items-center gap-2">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            // Validate file size (max 10MB)
+                            if (file.size > 10 * 1024 * 1024) {
+                              setError(t("teacher.imageTooLarge") || "Image size must be less than 10MB");
+                              return;
+                            }
+                            setImageFile(file);
+                            setError(null);
+                          }
+                        }}
+                        className="flex-1"
+                      />
+                      {imageFile && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <span className="truncate max-w-[150px]">{imageFile.name}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setImageFile(null)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* PDF Attachment */}
+                  <div>
+                    <Label className="text-sm text-gray-600 flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      {t("teacher.attachPDF") || "Attach PDF"}
+                    </Label>
+                    <div className="mt-2 flex items-center gap-2">
+                      <Input
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            // Validate file size (max 10MB)
+                            if (file.size > 10 * 1024 * 1024) {
+                              setError(t("teacher.pdfTooLarge") || "PDF size must be less than 10MB");
+                              return;
+                            }
+                            setPdfFile(file);
+                            setError(null);
+                          }
+                        }}
+                        className="flex-1"
+                      />
+                      {pdfFile && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <span className="truncate max-w-[150px]">{pdfFile.name}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setPdfFile(null)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Submit Button for Present Status */}
