@@ -49,8 +49,12 @@ export default function TeacherClassesPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dateFrom, setDateFrom] = useState<string>(format(new Date(), "yyyy-MM-dd"));
-  const [dateTo, setDateTo] = useState<string>(format(new Date(), "yyyy-MM-dd"));
+  // Default: show today and next 7 days
+  const today = new Date();
+  const nextWeek = new Date(today);
+  nextWeek.setDate(today.getDate() + 7);
+  const [dateFrom, setDateFrom] = useState<string>(format(today, "yyyy-MM-dd"));
+  const [dateTo, setDateTo] = useState<string>(format(nextWeek, "yyyy-MM-dd"));
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   useEffect(() => {
@@ -63,7 +67,16 @@ export default function TeacherClassesPage() {
       setError(null);
       const filters: any = {};
       
-      // Use filter parameter: 'past' for past classes, default is 'today'
+      // Send date range to backend
+      if (dateFrom) {
+        filters.date_from = dateFrom;
+      }
+      if (dateTo) {
+        filters.date_to = dateTo;
+      }
+      
+      // Only use filter parameter if no date range is specified
+      if (!dateFrom && !dateTo) {
       const today = format(new Date(), "yyyy-MM-dd");
       const isPastFilter = dateFrom < today || dateTo < today;
       
@@ -72,6 +85,7 @@ export default function TeacherClassesPage() {
       } else {
         // Default: show today's classes
         filters.filter = 'today';
+        }
       }
       
       if (statusFilter !== "all") filters.status = statusFilter;

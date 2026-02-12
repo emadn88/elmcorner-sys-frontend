@@ -59,6 +59,12 @@ const itemVariants = {
   },
 };
 
+// Helper function to get today's date in YYYY-MM-DD format
+const getTodayDate = () => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+};
+
 export default function TeacherTrialsPage() {
   const { t } = useLanguage();
   const [trials, setTrials] = useState<TrialClass[]>([]);
@@ -75,8 +81,10 @@ export default function TeacherTrialsPage() {
   });
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [dateFrom, setDateFrom] = useState<string>("");
-  const [dateTo, setDateTo] = useState<string>("");
+  // Set default to today's date
+  const todayDate = getTodayDate();
+  const [dateFrom, setDateFrom] = useState<string>(todayDate);
+  const [dateTo, setDateTo] = useState<string>(todayDate);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTrial, setSelectedTrial] = useState<TrialClass | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -166,8 +174,10 @@ export default function TeacherTrialsPage() {
   const handleClearFilters = () => {
     setSearch("");
     setStatusFilter("all");
-    setDateFrom("");
-    setDateTo("");
+    // Reset to today's date instead of empty
+    const today = getTodayDate();
+    setDateFrom(today);
+    setDateTo(today);
   };
 
   const getStatusColor = (status: string) => {
@@ -204,12 +214,24 @@ export default function TeacherTrialsPage() {
       className="space-y-6"
     >
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-          {t("teacher.trials") || "Trial Classes"}
-        </h1>
-        <p className="text-sm sm:text-base text-gray-600 mt-1">
-          {t("teacher.viewTrials") || "View and manage your assigned trial classes"}
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+              {t("teacher.trials") || "Trial Classes"}
+            </h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">
+              {t("teacher.viewTrials") || "View and manage your assigned trial classes"}
+            </p>
+          </div>
+          {dateFrom === getTodayDate() && dateTo === getTodayDate() && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+              <span className="text-sm font-medium text-blue-900">
+                {t("teacher.todayTrials") || "Today's Trials"}:
+              </span>
+              <span className="text-lg font-bold text-blue-600">{trials.length}</span>
+            </div>
+          )}
+        </div>
       </motion.div>
 
       {/* Statistics Cards */}
@@ -439,14 +461,14 @@ export default function TeacherTrialsPage() {
                         {t("teacher.enterMeet") || "Enter Meet"}
                       </Button>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => handleOpenModal(trial)}
-                    >
-                      {t("teacher.submitForReview") || "Submit for Review"}
-                    </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => handleOpenModal(trial)}
+                  >
+                    {t("teacher.submitForReview") || "Submit for Review"}
+                  </Button>
                   </div>
                 )}
                 {trial.status === "pending_review" && (
