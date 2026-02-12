@@ -517,7 +517,7 @@ export default function AutoBillingPage() {
                       <TableCell className="py-4">
                         <div className="space-y-1">
                           <div className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
-                            {bill.student?.full_name || "Unknown Student"}
+                            {bill.student?.student?.full_name || "Unknown Student"}
                           </div>
                         </div>
                       </TableCell>
@@ -628,7 +628,7 @@ export default function AutoBillingPage() {
                       <TableCell className="py-4">
                         <div className="space-y-1">
                           <div className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
-                            {bill.student?.full_name || "Unknown Student"}
+                            {bill.student?.student?.full_name || "Unknown Student"}
                           </div>
                         </div>
                       </TableCell>
