@@ -932,9 +932,38 @@ export interface MonthlyTrend {
 /**
  * Lead Types
  */
-export type LeadStatus = 'new' | 'contacted' | 'needs_follow_up' | 'trial_scheduled' | 'trial_confirmed' | 'converted' | 'not_interested' | 'cancelled';
+export type LeadStatus =
+  // Kanban statuses (primary)
+  | 'just_sent_us'
+  | 'needs_trial'
+  | 'waiting_for_trial'
+  | 'finished_trial'
+  | 'confirmed'
+  | 'not_complete'
+  | 'not_interested'
+  | 'needs_follow_up'
+  // Legacy statuses (backward compat)
+  | 'new'
+  | 'contacted'
+  | 'trial_scheduled'
+  | 'trial_confirmed'
+  | 'converted'
+  | 'cancelled';
 
 export type LeadPriority = 'high' | 'medium' | 'low';
+
+export interface LeadAuditLog {
+  id: number;
+  lead_id: number;
+  user_id?: number;
+  from_status?: string;
+  to_status: string;
+  field_changed: 'status' | 'create' | 'edit';
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  user?: User;
+}
 
 export interface Lead {
   id: number;
@@ -942,11 +971,19 @@ export interface Lead {
   whatsapp: string;
   country?: string;
   timezone?: string;
-  number_of_students: number;
+  number_of_students?: number;
   ages?: number[];
   source?: string;
+  // New Kanban fields
+  coming_from?: string;
+  coming_from_other?: string;
+  description?: string;
+  tags?: string[];
+  follow_up_date?: string;
+  last_status_changed_at?: string;
+  // Common fields
   status: LeadStatus;
-  priority: LeadPriority;
+  priority?: LeadPriority;
   assigned_to?: number;
   assigned_user?: User;
   next_follow_up?: string;
@@ -954,9 +991,13 @@ export interface Lead {
   converted_to_student_id?: number;
   converted_student?: Student;
   last_contacted_at?: string;
+  audit_logs?: LeadAuditLog[];
   created_at: string;
   updated_at: string;
 }
+
+/** Kanban board grouped result: status key -> array of leads */
+export type KanbanBoard = Record<string, Lead[]>;
 
 export interface LeadFilters {
   status?: LeadStatus | 'all';
@@ -964,7 +1005,10 @@ export interface LeadFilters {
   country?: string;
   assigned_to?: number;
   source?: string;
+  coming_from?: string;
+  follow_up_filter?: 'today' | 'overdue' | 'this_week';
   overdue_follow_up?: boolean;
+  hide_not_interested?: boolean;
   date_from?: string;
   date_to?: string;
   search?: string;
@@ -1088,6 +1132,8 @@ export interface Bill {
   total_hours?: number;
   amount: number;
   currency: string;
+  paypal_currency?: string;
+  paypal_amount?: number;
   status: 'pending' | 'sent' | 'paid';
   bill_date: string;
   payment_date?: string;

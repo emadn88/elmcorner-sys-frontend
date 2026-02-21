@@ -5,7 +5,7 @@
 
 import { apiClient } from "@/lib/api/client";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
-import { Lead, LeadFilters, LeadStats, ConvertLeadRequest, PaginatedResponse } from "@/lib/api/types";
+import { Lead, LeadFilters, LeadStats, ConvertLeadRequest, PaginatedResponse, KanbanBoard, LeadAuditLog } from "@/lib/api/types";
 
 export class LeadService {
   /**
@@ -13,7 +13,7 @@ export class LeadService {
    */
   static async getLeads(filters: LeadFilters = {}): Promise<PaginatedResponse<Lead>> {
     const params = new URLSearchParams();
-    
+
     if (filters.status && filters.status !== 'all') params.append('status', filters.status);
     if (filters.priority && filters.priority !== 'all') params.append('priority', filters.priority);
     if (filters.country) params.append('country', filters.country);
@@ -151,5 +151,37 @@ export class LeadService {
     }
 
     throw new Error("Failed to fetch lead statistics");
+  }
+
+  /**
+   * Get kanban board data for leads
+   */
+  static async getKanbanBoard(filters?: {
+    search?: string;
+    coming_from?: string;
+    assigned_to?: number;
+    follow_up_filter?: 'today' | 'overdue' | 'this_week';
+    hide_not_interested?: boolean;
+  }): Promise<KanbanBoard> {
+    const response = await apiClient.get<KanbanBoard>(API_ENDPOINTS.ADMIN.LEADS_KANBAN, { params: filters });
+
+    if (response.status === "success" && response.data) {
+      return response.data;
+    }
+
+    throw new Error(response.message || "Failed to fetch kanban board data");
+  }
+
+  /**
+   * Get lead history (audit log)
+   */
+  static async getLeadHistory(id: number): Promise<LeadAuditLog[]> {
+    const response = await apiClient.get<LeadAuditLog[]>(API_ENDPOINTS.ADMIN.LEAD_HISTORY(id));
+
+    if (response.status === "success" && response.data) {
+      return response.data;
+    }
+
+    throw new Error(response.message || "Failed to fetch lead history");
   }
 }

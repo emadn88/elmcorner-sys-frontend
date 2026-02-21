@@ -689,7 +689,7 @@ export default function CustomBillingPage() {
                       <TableCell className="py-4">
                         <div className="space-y-1">
                           <div className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
-                            {bill.student?.full_name || t("billing.noStudent") || "No Student"}
+                            {((bill.student && ('full_name' in bill.student ? bill.student.full_name : bill.student.student?.full_name)) as string | undefined) || t("billing.noStudent") || "No Student"}
                           </div>
                           {bill.description && (
                             <div className="text-xs text-gray-500 mt-1 line-clamp-1">
@@ -792,7 +792,7 @@ export default function CustomBillingPage() {
                       <TableCell className="py-4">
                         <div className="space-y-1">
                           <div className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
-                            {bill.student?.full_name || t("billing.noStudent") || "No Student"}
+                            {((bill.student && ('full_name' in bill.student ? bill.student.full_name : bill.student.student?.full_name)) as string | undefined) || t("billing.noStudent") || "No Student"}
                           </div>
                           {bill.description && (
                             <div className="text-xs text-gray-500 mt-1 line-clamp-1">
@@ -961,7 +961,7 @@ export default function CustomBillingPage() {
                   onFocus={() => setShowCustomBillStudentDropdown(true)}
                   className={cn(
                     "pl-9",
-                    customBillForm.student_id > 0 && "pr-9"
+                    (customBillForm.student_id ?? 0) > 0 && "pr-9"
                   )}
                 />
                 {customBillForm.student_id && (

@@ -44,13 +44,13 @@ export default function PaymentPage() {
     }
   }, [token]);
 
-  // Load PayPal SDK
+  // Load PayPal SDK — use paypal_currency (the currency the backend will actually use for orders)
   useEffect(() => {
     if (typeof window !== 'undefined' && !window.paypal && bill) {
       const script = document.createElement('script');
-      // Use production client ID (from env or fallback to production)
       const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || 'AcjSyDBXwerwjC5jpZGWA2IsDCwEYQRWuxuc23euPHvcB10bR-qILNyVBdoyBXIb1wd2Bi-1BDFNMBh1';
-      script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${bill.currency || 'USD'}&intent=capture&enable-funding=venmo,card`;
+      const sdkCurrency = bill.paypal_currency || bill.currency || 'USD';
+      script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${sdkCurrency}&intent=capture&enable-funding=venmo,card`;
       script.async = true;
       script.onload = () => setPaypalLoaded(true);
       script.onerror = () => {
@@ -761,6 +761,9 @@ export default function PaymentPage() {
                       </div>
                     </CardContent>
                   </Card>
+                  <p className="text-center text-xs sm:text-sm text-gray-600 mt-3 px-2" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+                    By completing the payment, you agree to our Subscription, Refund, and Privacy Policies.
+                  </p>
                 </div>
               )}
 
@@ -799,6 +802,48 @@ export default function PaymentPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Footer: Company info and policies (bilingual) */}
+        <footer className="mt-6 sm:mt-8 w-full max-w-full sm:max-w-lg mx-auto px-2 text-center">
+          <div className="rounded-xl bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm p-4 sm:p-5 space-y-4">
+            {/* English */}
+            <div className="text-gray-700 text-xs sm:text-sm leading-relaxed" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+              <p className="font-semibold mb-1">© 2026. All rights reserved.</p>
+              <p>This educational platform is operated by</p>
+              <p className="font-medium">Afaaq Automation Software Solutions LLC</p>
+              <p>National Number: 200211022</p>
+              <p>
+                <a href="mailto:info@afaaq-tech.com" className="text-emerald-600 hover:underline">📧 Email: info@afaaq-tech.com</a>
+              </p>
+              <p className="mt-2 pt-2 border-t border-gray-200">
+                By using this website, you agree to our<br />
+                <a href="#privacy-policy" className="text-emerald-600 hover:underline">Privacy Policy</a>
+                {" – "}
+                <a href="#refund-policy" className="text-emerald-600 hover:underline">Refund Policy</a>
+                {" – "}
+                <a href="#terms" className="text-emerald-600 hover:underline">Terms &amp; Conditions</a>
+              </p>
+            </div>
+            {/* Arabic */}
+            <div className="text-gray-700 text-xs sm:text-sm leading-relaxed border-t border-gray-200 pt-4" dir="rtl" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+              <p className="font-semibold mb-1">© 2026. جميع الحقوق محفوظة.</p>
+              <p>يتم تشغيل هذه المنصة التعليمية بواسطة</p>
+              <p className="font-medium">شركة آفاق الأتمتة لحلول البرمجية / ذات مسؤولية محدودة</p>
+              <p>الرقم الوطني: 200211022</p>
+              <p>
+                <a href="mailto:info@afaaq-tech.com" className="text-emerald-600 hover:underline">📧 البريد الإلكتروني: info@afaaq-tech.com</a>
+              </p>
+              <p className="mt-2 pt-2 border-t border-gray-200">
+                باستخدامك لهذا الموقع، فإنك توافق على<br />
+                <a href="#privacy-policy" className="text-emerald-600 hover:underline">سياسة الخصوصية</a>
+                {" – "}
+                <a href="#refund-policy" className="text-emerald-600 hover:underline">سياسة الاسترجاع</a>
+                {" – "}
+                <a href="#terms" className="text-emerald-600 hover:underline">الشروط والأحكام</a>
+              </p>
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
     </>

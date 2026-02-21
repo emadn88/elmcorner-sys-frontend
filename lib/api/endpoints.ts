@@ -12,13 +12,13 @@ export const API_ENDPOINTS = {
     REFRESH: `/auth/refresh`,
     ME: `/auth/me`,
   },
-  
+
   // Admin - Students
   ADMIN: {
     STUDENTS: `/admin/students`,
     STUDENTS_STATS: `/admin/students/stats`,
     STUDENT: (id: number) => `/admin/students/${id}`,
-    
+
     // Teachers
     TEACHERS: `/admin/teachers`,
     TEACHER: (id: number) => `/admin/teachers/${id}`,
@@ -31,25 +31,25 @@ export const API_ENDPOINTS = {
     TEACHER_RATE_DETAILS_PDF: (id: number) => `/admin/teachers/${id}/rate-details/pdf`,
     TEACHER_SEND_CREDENTIALS_WHATSAPP: (id: number) => `/admin/teachers/${id}/send-credentials-whatsapp`,
     TEACHERS_AVAILABLE: `/admin/teachers/available`,
-    
+
     // Courses
     COURSES: `/admin/courses`,
     COURSE: (id: number) => `/admin/courses/${id}`,
-    
+
     // Families
     FAMILIES: `/admin/families`,
     FAMILIES_SEARCH: `/admin/families/search`,
     FAMILY: (id: number) => `/admin/families/${id}`,
-    
+
     // Timetables
     TIMETABLES: `/admin/timetables`,
     TIMETABLE: (id: number) => `/admin/timetables/${id}`,
-    
+
     // Classes
     CLASSES: `/admin/classes`,
     CLASSES_EXPORT_PDF: `/admin/classes/export/pdf`,
     CLASS: (id: number) => `/admin/classes/${id}`,
-    
+
     // Packages
     PACKAGES: `/admin/packages`,
     PACKAGES_FINISHED: `/admin/packages/finished`,
@@ -63,7 +63,7 @@ export const API_ENDPOINTS = {
     PACKAGE_MARK_PAID: (id: number) => `/admin/packages/${id}/mark-paid`,
     PACKAGE_NOTIFICATION_HISTORY: (id: number) => `/admin/packages/${id}/notification-history`,
     PACKAGES_BULK_NOTIFY: `/admin/packages/bulk-notify`,
-    
+
     // Trial Classes
     TRIALS: `/admin/trials`,
     TRIALS_STATS: `/admin/trials/stats`,
@@ -71,15 +71,17 @@ export const API_ENDPOINTS = {
     TRIAL_STATUS: (id: number) => `/admin/trials/${id}/status`,
     TRIAL_REVIEW: (id: number) => `/admin/trials/${id}/review`,
     TRIAL_CONVERT: (id: number) => `/admin/trials/${id}/convert`,
-    
+
     // Leads
     LEADS: `/admin/leads`,
     LEADS_STATS: `/admin/leads/stats`,
+    LEADS_KANBAN: `/admin/leads/kanban`,
     LEAD: (id: number) => `/admin/leads/${id}`,
     LEAD_STATUS: (id: number) => `/admin/leads/${id}/status`,
+    LEAD_HISTORY: (id: number) => `/admin/leads/${id}/history`,
     LEADS_BULK_STATUS: `/admin/leads/bulk-status`,
     LEAD_CONVERT: (id: number) => `/admin/leads/${id}/convert`,
-    
+
     // Billing
     BILLS: `/admin/bills`,
     BILLS_STATISTICS: `/admin/bills/statistics`,
@@ -88,53 +90,53 @@ export const API_ENDPOINTS = {
     BILL_SEND_WHATSAPP: (id: number) => `/admin/bills/${id}/send-whatsapp`,
     BILL_PDF: (id: number) => `/admin/bills/${id}/pdf`,
     BILL_GENERATE_TOKEN: (id: number) => `/admin/bills/${id}/generate-token`,
-    
+
     // Expenses
     EXPENSES: `/admin/expenses`,
     EXPENSE: (id: number) => `/admin/expenses/${id}`,
-    
+
     // Duties
     DUTIES: `/admin/duties`,
     DUTY: (id: number) => `/admin/duties/${id}`,
-    
+
     // Reports
     REPORTS: `/admin/reports`,
     REPORT: (id: number) => `/admin/reports/${id}`,
     REPORT_DOWNLOAD: (id: number) => `/admin/reports/${id}/download`,
     REPORT_SEND_WHATSAPP: (id: number) => `/admin/reports/${id}/send-whatsapp`,
     REPORT_GENERATE: `/admin/reports/generate`,
-    
+
     // Analytics
     ANALYTICS_REVENUE: `/admin/analytics/revenue`,
     ANALYTICS_ATTENDANCE: `/admin/analytics/attendance`,
     ANALYTICS_COURSES: `/admin/analytics/courses`,
     ANALYTICS_OVERVIEW: `/admin/analytics/overview`,
-    
+
     // Dashboard
     DASHBOARD: `/admin/dashboard`,
-    
+
     // Settings
     SETTINGS: `/admin/settings`,
-    
+
     // Users
     USERS: `/admin/users`,
     USER: (id: number) => `/admin/users/${id}`,
     USER_STATUS: (id: number) => `/admin/users/${id}/status`,
-    
+
     // Roles
     ROLES: `/admin/roles`,
     ROLE: (id: number) => `/admin/roles/${id}`,
     ROLE_PERMISSIONS: (id: number) => `/admin/roles/${id}/permissions`,
     ROLES_PERMISSIONS_ALL: `/admin/roles/permissions/all`,
     ROLES_PAGES_PERMISSIONS: `/admin/roles/pages-permissions`,
-    
+
     // Activity
     ACTIVITY: `/admin/activity`,
     ACTIVITY_STATS: `/admin/activity/stats`,
     ACTIVITY_RECENT: `/admin/activity/recent`,
     ACTIVITY_STUDENTS: `/admin/activity/students`,
     ACTIVITY_REACTIVATE: (id: number) => `/admin/activity/reactivate/${id}`,
-    
+
     // Salaries
     SALARIES: `/admin/salaries`,
     SALARY: (id: number) => `/admin/salaries/${id}`,
@@ -142,7 +144,7 @@ export const API_ENDPOINTS = {
     SALARY_BREAKDOWN: (id: number) => `/admin/salaries/${id}/breakdown`,
     SALARY_HISTORY: (id: number) => `/admin/salaries/${id}/history`,
     SALARY_ALL_HISTORY: `/admin/salaries/all-history`,
-    
+
     // Financials
     FINANCIALS: {
       SUMMARY: `/admin/financials/summary`,
@@ -155,7 +157,7 @@ export const API_ENDPOINTS = {
     EXPENSES: `/admin/expenses`,
     EXPENSE: (id: number) => `/admin/expenses/${id}`,
   },
-  
+
   // Teacher
   TEACHER: {
     DASHBOARD: `/teacher/dashboard`,
@@ -180,7 +182,7 @@ export const API_ENDPOINTS = {
     TRIAL: (id: number) => `/teacher/trials/${id}`,
     TRIAL_SUBMIT_REVIEW: (id: number) => `/teacher/trials/${id}/submit-review`,
   },
-  
+
   // Admin Notifications
   ADMIN_NOTIFICATIONS: {
     LIST: `/admin/notifications`,
@@ -188,7 +190,7 @@ export const API_ENDPOINTS = {
     APPROVE_CANCELLATION: (id: number) => `/admin/notifications/class-cancellation/${id}/approve`,
     REJECT_CANCELLATION: (id: number) => `/admin/notifications/class-cancellation/${id}/reject`,
   },
-  
+
   // External (Public)
   EXTERNAL: {
     PAYMENT: (token: string) => `/external/payment/${token}`,

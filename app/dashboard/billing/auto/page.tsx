@@ -517,7 +517,7 @@ export default function AutoBillingPage() {
                       <TableCell className="py-4">
                         <div className="space-y-1">
                           <div className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
-                            {bill.student?.student?.full_name || "Unknown Student"}
+                            {((bill.student && ('full_name' in bill.student ? bill.student.full_name : bill.student.student?.full_name)) as string | undefined) || "Unknown Student"}
                           </div>
                         </div>
                       </TableCell>
@@ -628,7 +628,7 @@ export default function AutoBillingPage() {
                       <TableCell className="py-4">
                         <div className="space-y-1">
                           <div className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
-                            {bill.student?.student?.full_name || "Unknown Student"}
+                            {((bill.student && ('full_name' in bill.student ? bill.student.full_name : bill.student.student?.full_name)) as string | undefined) || "Unknown Student"}
                           </div>
                         </div>
                       </TableCell>
@@ -769,7 +769,7 @@ export default function AutoBillingPage() {
                 <h3 className="font-semibold mb-2">
                   {t("billing.studentInformation") || "Student Information"}
                 </h3>
-                <p>{selectedBill.student?.full_name || selectedBill.student?.student?.full_name || "Unknown"}</p>
+                <p>{selectedBill.student?.student?.full_name || "Unknown"}</p>
               </div>
               <div>
                 <h3 className="font-semibold mb-2">

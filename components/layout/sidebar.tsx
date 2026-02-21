@@ -36,6 +36,7 @@ import {
   Target,
   Shield,
   FileText,
+  LayoutGrid,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/hooks/use-sidebar";
@@ -161,9 +162,9 @@ const getNavGroups = (
         permission: "view_students",
       },
       {
-        label: t("sidebar.leads"),
-        href: "/dashboard/leads",
-        icon: Target,
+        label: t("sidebar.registrationManagement") || "ادارة التسجيلات",
+        href: "/dashboard/leads/pipeline",
+        icon: LayoutGrid,
         permission: "view_students",
       },
       {

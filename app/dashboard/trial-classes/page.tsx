@@ -15,11 +15,20 @@ import { TrialService } from "@/lib/services/trial.service";
 import { useLanguage } from "@/contexts/language-context";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
+// Helper function to get today's date in YYYY-MM-DD format
+const getTodayDate = () => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+};
+
 export default function TrialClassesPage() {
   const { t, direction } = useLanguage();
   const [trials, setTrials] = useState<TrialClass[]>([]);
+  const todayDate = getTodayDate();
   const [filters, setFilters] = useState<TrialFilters>({
     status: "all",
+    date_from: todayDate,
+    date_to: todayDate,
   });
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isConvertOpen, setIsConvertOpen] = useState(false);
@@ -182,13 +191,23 @@ export default function TrialClassesPage() {
     <div className={`flex flex-col gap-6 ${direction === "rtl" ? "text-right" : "text-left"}`}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            {t("sidebar.trialClasses") || "Trial Classes"}
-          </h1>
-          <p className="text-gray-600 mt-2">
-            {t("trials.description") || "Manage trial classes and convert them to regular packages"}
-          </p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {t("sidebar.trialClasses") || "Trial Classes"}
+            </h1>
+            <p className="text-gray-600 mt-2">
+              {t("trials.description") || "Manage trial classes and convert them to regular packages"}
+            </p>
+          </div>
+          {filters.date_from === todayDate && filters.date_to === todayDate && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+              <span className="text-sm font-medium text-blue-900">
+                {t("trials.todayTrials") || "Today's Trials"}:
+              </span>
+              <span className="text-2xl font-bold text-blue-600">{trials.length}</span>
+            </div>
+          )}
         </div>
         <Button onClick={handleCreate} className="flex items-center gap-2">
           <Plus className="h-4 w-4" />
