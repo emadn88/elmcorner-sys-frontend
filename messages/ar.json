@@ -132,7 +132,9 @@
     "statusNotComplete": "غير مكتمل",
     "statusNotInterested": "غير مهتم",
     "statusNeedsFollowUp": "يحتاج متابعة",
-    "failedToCreate": "فشل إنشاء العميل. يرجى المحاولة مرة أخرى."
+    "failedToCreate": "فشل إنشاء العميل. يرجى المحاولة مرة أخرى.",
+    "remove": "حذف",
+    "removeConfirm": "حذف هذا التسجيل؟ لا يمكن التراجع عن هذا الإجراء."
   },
   "header": {
     "myProfile": "ملفي الشخصي",

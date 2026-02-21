@@ -8,7 +8,7 @@ import { useLanguage } from "@/contexts/language-context";
 import { cn } from "@/lib/utils";
 import {
     X, Phone, User as UserIcon, Calendar, Tag, MessageCircle,
-    ExternalLink, Clock, Edit, Save
+    ExternalLink, Clock, Edit, Save, Trash2
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
@@ -17,6 +17,7 @@ interface LeadDrawerProps {
     users: User[];
     onClose: () => void;
     onUpdated: (lead: Lead) => void;
+    onDeleted?: (leadId: number) => void;
 }
 
 function formatDateTime(dateStr?: string) {
@@ -24,10 +25,11 @@ function formatDateTime(dateStr?: string) {
     try { return format(parseISO(dateStr), "MMM d, yyyy HH:mm"); } catch { return dateStr; }
 }
 
-export function LeadDrawer({ lead, users, onClose, onUpdated }: LeadDrawerProps) {
+export function LeadDrawer({ lead, users, onClose, onUpdated, onDeleted }: LeadDrawerProps) {
     const { t, direction } = useLanguage();
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState(false);
     const [history, setHistory] = useState<LeadAuditLog[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [tagInput, setTagInput] = useState("");
@@ -102,6 +104,20 @@ export function LeadDrawer({ lead, users, onClose, onUpdated }: LeadDrawerProps)
         setForm(f => ({ ...f, tags: f.tags.filter(t => t !== tag) }));
     }
 
+    async function handleRemove() {
+        if (!lead || !window.confirm(t("pipeline.removeConfirm"))) return;
+        setDeleting(true);
+        try {
+            await LeadService.deleteLead(lead.id);
+            onDeleted?.(lead.id);
+            onClose();
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setDeleting(false);
+        }
+    }
+
     if (!lead) return null;
 
     const whatsAppUrl = `https://wa.me/${lead.whatsapp.replace(/\D/g, "")}`;
@@ -158,6 +174,14 @@ export function LeadDrawer({ lead, users, onClose, onUpdated }: LeadDrawerProps)
                                 {t("pipeline.edit")}
                             </button>
                         )}
+                        <button
+                            onClick={handleRemove}
+                            disabled={deleting}
+                            title={t("pipeline.remove")}
+                            className="p-1.5 hover:bg-red-500/10 dark:hover:bg-red-500/20 rounded-lg text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors disabled:opacity-50"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </button>
                         <button onClick={onClose} className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
                             <X className="h-4 w-4" />
                         </button>

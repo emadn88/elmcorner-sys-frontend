@@ -132,7 +132,9 @@
     "statusNotComplete": "Not Complete",
     "statusNotInterested": "Not Interested",
     "statusNeedsFollowUp": "Needs Follow-up",
-    "failedToCreate": "Failed to create lead. Please try again."
+    "failedToCreate": "Failed to create lead. Please try again.",
+    "remove": "Remove",
+    "removeConfirm": "Remove this registration? This cannot be undone."
   },
   "header": {
     "myProfile": "My Profile",

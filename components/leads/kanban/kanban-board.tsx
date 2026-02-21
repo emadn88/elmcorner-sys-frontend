@@ -171,6 +171,17 @@ export function KanbanBoard({ users }: KanbanBoardProps) {
         });
     }
 
+    function handleLeadDeleted(leadId: number) {
+        setSelectedLead(null);
+        setBoard(prev => {
+            const next = { ...prev };
+            for (const key of Object.keys(next)) {
+                next[key] = next[key].filter(l => l.id !== leadId);
+            }
+            return next;
+        });
+    }
+
     // ── Render ─────────────────────────────────────────────────────────────────
 
     if (loading) {
@@ -281,6 +292,7 @@ export function KanbanBoard({ users }: KanbanBoardProps) {
                     users={users}
                     onClose={() => setSelectedLead(null)}
                     onUpdated={handleLeadUpdated}
+                    onDeleted={handleLeadDeleted}
                 />
             )}
 
